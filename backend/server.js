@@ -1,11 +1,13 @@
 const express = require("express");
 const cors = require("cors");
 const Groq = require("groq-sdk");
+const archiver = require("archiver");
 require("dotenv").config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || "llama-3.1-8b-instant";
 
 // ── Initialize Groq Client ──
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -23,7 +25,7 @@ async function callGroq(systemPrompt, userPrompt, jsonMode = false) {
       { role: "user", content: userPrompt },
     ],
     temperature: 0.3,
-    max_tokens: 4096,
+    max_tokens: 8192,
   };
 
   if (jsonMode) {
@@ -237,6 +239,473 @@ Rules:
       warning: "No functions detected in the code. Try adding function definitions.",
     });
   }
+});
+
+// ── POST /api/generate-project ──
+app.post("/api/generate-project", async (req, res) => {
+  const { prompt } = req.body;
+
+  if (!prompt || !prompt.trim()) {
+    return res.status(400).json({ error: "No prompt provided." });
+  }
+
+  try {
+    const systemPrompt = `You are an AI project generator.
+Return ONLY valid JSON in this exact format:
+
+{
+  "projectName": "short-kebab-case-name",
+  "files": [
+    {
+      "path": "src/App.js",
+      "content": "// code here"
+    },
+    {
+      "path": "src/styles.css",
+      "content": "/* css here */"
+    }
+  ]
+}
+
+Rules:
+- "projectName" must be a short, descriptive kebab-case name for the project (e.g., "todo-app", "weather-dashboard", "auth-system")
+- Generate complete, working code for each file
+- Use realistic, well-structured file paths (e.g., src/components/Header.jsx, src/utils/helpers.js)
+- Include all necessary files for the project to work (HTML, CSS, JS, config files, etc.)
+- Code should be production-quality, well-formatted, and follow best practices
+- Do NOT add any explanations, comments outside code, or markdown formatting
+- Do not explain anything. Return ONLY the JSON object, nothing else`;
+
+    const raw = await callGroq(systemPrompt, prompt, true);
+
+    if (!raw) {
+      return res.status(502).json({ error: "Empty response from Groq API." });
+    }
+
+    // Parse the JSON response
+    try {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON found in response");
+
+      const result = JSON.parse(jsonMatch[0]);
+
+      if (!result.files || !Array.isArray(result.files) || result.files.length === 0) {
+        return res.status(502).json({ error: "AI returned no files. Try a more detailed prompt." });
+      }
+
+      // Extract or generate project name
+      let projectName = result.projectName;
+      if (!projectName || typeof projectName !== "string") {
+        // Fallback: generate from prompt
+        projectName = prompt
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .slice(0, 30)
+          .replace(/-+$/, "") || "generated-project";
+      }
+
+      // Sanitize project name
+      projectName = projectName
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "")
+        .slice(0, 40) || "generated-project";
+
+      // Validate each file has path and content
+      const validFiles = result.files
+        .filter((f) => f && typeof f.path === "string" && typeof f.content === "string")
+        .map((f) => ({
+          path: f.path.replace(/^\/+/, ""), // Remove leading slashes
+          content: f.content,
+        }));
+
+      if (validFiles.length === 0) {
+        return res.status(502).json({ error: "AI returned invalid file format." });
+      }
+
+      return res.json({ projectName, files: validFiles });
+    } catch (parseErr) {
+      console.error("Failed to parse generate-project JSON:", parseErr.message);
+      return res.status(502).json({
+        error: "Failed to parse AI response. Try simplifying your prompt.",
+      });
+    }
+  } catch (err) {
+    console.error("Groq generate-project error:", err.message);
+    return res.status(500).json({
+      error: `Failed to generate project: ${err.message}`,
+    });
+  }
+});
+
+// ── POST /api/autocomplete ──
+app.post("/api/autocomplete", async (req, res) => {
+  const { code, language } = req.body;
+
+  if (!code || typeof code !== "string") {
+    return res.status(400).json({ suggestion: "" });
+  }
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: GROQ_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an intelligent code autocomplete engine. Given partial code, predict the most likely continuation. Rules:\n" +
+            "- Return ONLY the code that comes next (the continuation), nothing else.\n" +
+            "- Do NOT repeat any of the existing code.\n" +
+            "- Do NOT wrap in markdown code fences.\n" +
+            "- Do NOT add explanations or comments.\n" +
+            "- Keep the continuation concise (1-3 lines typically).\n" +
+            "- Match the existing code style, indentation, and naming conventions.\n" +
+            "- If the code ends mid-line, continue from that exact point.\n" +
+            "- Return an empty string if no meaningful continuation is possible.",
+        },
+        {
+          role: "user",
+          content: `Language: ${language || "javascript"}\n\nContinue this code:\n${code}`,
+        },
+      ],
+      temperature: 0.1,
+      max_tokens: 128,
+      stop: ["\n\n\n"],
+    });
+
+    const raw = completion.choices[0]?.message?.content || "";
+
+    // Strip any accidental markdown fences
+    const suggestion = raw
+      .replace(/^```[\w]*\n?/gm, "")
+      .replace(/```\s*$/gm, "")
+      .trimEnd();
+
+    return res.json({ suggestion });
+  } catch (err) {
+    console.error("Groq autocomplete error:", err.message);
+    return res.json({ suggestion: "" });
+  }
+});
+
+// ── POST /api/github/import ──
+// Fetches a public GitHub repository's file tree and contents
+async function fetchGitHubTree(owner, repo, branch = "main") {
+  const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
+  const headers = {
+    Accept: "application/vnd.github.v3+json",
+    "User-Agent": "AI-Code-Editor",
+  };
+  if (GITHUB_TOKEN) {
+    headers.Authorization = `token ${GITHUB_TOKEN}`;
+  }
+
+  // 1. Try to get the recursive tree using Git Trees API (fast, single call)
+  async function tryBranch(branchName) {
+    const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branchName}?recursive=1`;
+    const res = await fetch(treeUrl, { headers });
+    if (!res.ok) return null;
+    return res.json();
+  }
+
+  let treeData = await tryBranch(branch);
+  if (!treeData) {
+    // Fallback: try "master" if "main" fails
+    treeData = await tryBranch("master");
+  }
+  if (!treeData) {
+    throw new Error(
+      `Could not access repository "${owner}/${repo}". Make sure it exists and is public.`
+    );
+  }
+
+  // 2. Filter to only blobs (files), skip large files, skip common non-text
+  const SKIP_DIRS = [
+    "node_modules/",
+    ".git/",
+    "__pycache__/",
+    "dist/",
+    "build/",
+    ".next/",
+    "vendor/",
+    ".venv/",
+    "venv/",
+    ".idea/",
+    ".vscode/",
+  ];
+
+  const SKIP_EXTENSIONS = /\.(png|jpg|jpeg|gif|bmp|ico|svg|woff|woff2|ttf|eot|mp3|mp4|avi|mov|zip|tar|gz|exe|dll|so|dylib|pdf|lock|min\.js|min\.css|map)$/i;
+
+  const MAX_FILE_SIZE = 256 * 1024; // 256KB per file
+  const MAX_FILES = 150; // Cap total files to import
+
+  const blobs = (treeData.tree || [])
+    .filter((item) => {
+      if (item.type !== "blob") return false;
+      if (item.size && item.size > MAX_FILE_SIZE) return false;
+      if (SKIP_DIRS.some((dir) => item.path.includes(dir))) return false;
+      if (SKIP_EXTENSIONS.test(item.path)) return false;
+      return true;
+    })
+    .slice(0, MAX_FILES);
+
+  if (blobs.length === 0) {
+    throw new Error("No importable source files found in this repository.");
+  }
+
+  // 3. Fetch file contents in parallel (batched to avoid rate limits)
+  const BATCH_SIZE = 15;
+  const files = {};
+
+  for (let i = 0; i < blobs.length; i += BATCH_SIZE) {
+    const batch = blobs.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(async (blob) => {
+        const contentUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${blob.path}?ref=${treeData.sha || branch}`;
+        const res = await fetch(contentUrl, { headers });
+        if (!res.ok) return null;
+
+        const data = await res.json();
+        if (!data.content) return null;
+
+        try {
+          // GitHub returns base64-encoded content
+          const decoded = Buffer.from(data.content, "base64").toString("utf-8");
+          return { path: blob.path, content: decoded };
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    results.forEach((r) => {
+      if (r.status === "fulfilled" && r.value) {
+        files[r.value.path] = r.value.content;
+      }
+    });
+  }
+
+  return files;
+}
+
+app.post("/api/github/import", async (req, res) => {
+  const { repoUrl } = req.body;
+
+  if (!repoUrl || !repoUrl.trim()) {
+    return res.status(400).json({ error: "No repository URL provided." });
+  }
+
+  try {
+    // Parse the GitHub URL — supports multiple formats
+    // https://github.com/owner/repo
+    // https://github.com/owner/repo.git
+    // https://github.com/owner/repo/tree/branch
+    // github.com/owner/repo
+    // owner/repo
+    let owner, repo, branch;
+
+    const cleanUrl = repoUrl.trim().replace(/\.git$/, "");
+
+    // Try full URL format
+    const urlMatch = cleanUrl.match(
+      /(?:https?:\/\/)?github\.com\/([^/]+)\/([^/\s]+)(?:\/tree\/([^/\s]+))?/
+    );
+
+    if (urlMatch) {
+      owner = urlMatch[1];
+      repo = urlMatch[2];
+      branch = urlMatch[3] || "main";
+    } else {
+      // Try owner/repo shorthand
+      const shortMatch = cleanUrl.match(/^([^/\s]+)\/([^/\s]+)$/);
+      if (shortMatch) {
+        owner = shortMatch[1];
+        repo = shortMatch[2];
+        branch = "main";
+      } else {
+        return res.status(400).json({
+          error:
+            'Invalid GitHub URL. Use format: "https://github.com/owner/repo" or "owner/repo"',
+        });
+      }
+    }
+
+    console.log(`📦 Importing GitHub repo: ${owner}/${repo} (branch: ${branch})`);
+
+    const files = await fetchGitHubTree(owner, repo, branch);
+
+    const fileCount = Object.keys(files).length;
+    if (fileCount === 0) {
+      return res.status(404).json({ error: "No files found in this repository." });
+    }
+
+    console.log(`✅ Imported ${fileCount} files from ${owner}/${repo}`);
+
+    return res.json({
+      owner,
+      repo,
+      branch,
+      fileCount,
+      files,
+    });
+  } catch (err) {
+    console.error("GitHub import error:", err.message);
+    return res.status(500).json({
+      error: err.message || "Failed to import repository.",
+    });
+  }
+});
+
+// ── POST /api/chat ──
+// AI Chat that can create, update, and delete project files
+app.post("/api/chat", async (req, res) => {
+  const { message, files, fileTree, currentFile, history } = req.body;
+
+  if (!message || !message.trim()) {
+    return res.status(400).json({ error: "No message provided." });
+  }
+
+  try {
+    // Build compact file context — only provided file contents (usually just active file)
+    let fileContext = "No files available.";
+    if (files && Object.keys(files).length > 0) {
+      fileContext = Object.entries(files)
+        .map(([path, content]) => {
+          // Truncate very large files as a safety net
+          const truncated = content && content.length > 4000
+            ? content.slice(0, 3000) + "\n// ... (truncated)"
+            : content || "";
+          return `--- ${path} ---\n${truncated}`;
+        })
+        .join("\n\n");
+    }
+
+    // Build compact file tree listing (just paths)
+    let treeContext = "";
+    if (fileTree && Array.isArray(fileTree) && fileTree.length > 0) {
+      treeContext = `\n\nProject file tree:\n${fileTree.map((p) => `  - ${p}`).join("\n")}`;
+    }
+
+    const systemPrompt = `You are an IDE AI assistant. Current file: ${currentFile || "unknown"}
+
+${fileContext}
+${treeContext}
+
+Respond ONLY with valid JSON: {"actions":[...],"message":"..."}
+Action types: "create" (new file), "update" (modify file, include FULL content), "delete" (remove file).
+Each action: {"type":"create|update|delete","path":"file/path","content":"code"} (content optional for delete).
+If no file changes needed, return empty actions array. Keep message concise.`;
+
+    // Build messages array with conversation history
+    const chatMessages = [{ role: "system", content: systemPrompt }];
+
+    // Add conversation history for context
+    if (history && Array.isArray(history)) {
+      // Only include the last 8 history messages to stay within token limits
+      const recentHistory = history.slice(-4);
+      for (const msg of recentHistory) {
+        if (msg.role === "user" || msg.role === "assistant") {
+          chatMessages.push({
+            role: msg.role,
+            content: msg.content,
+          });
+        }
+      }
+    } else {
+      chatMessages.push({ role: "user", content: message });
+    }
+
+    const completion = await groq.chat.completions.create({
+      model: GROQ_CHAT_MODEL,
+      messages: chatMessages,
+      temperature: 0.2,
+      max_tokens: 4096,
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content || "";
+
+    if (!raw) {
+      return res.status(502).json({ error: "Empty response from AI." });
+    }
+
+    try {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON found");
+
+      const result = JSON.parse(jsonMatch[0]);
+
+      const actions = Array.isArray(result.actions)
+        ? result.actions.filter(
+            (a) =>
+              a &&
+              typeof a.type === "string" &&
+              typeof a.path === "string" &&
+              ["create", "update", "delete"].includes(a.type)
+          )
+        : [];
+
+      const responseMessage =
+        result.message || "Done. Check the updated files.";
+
+      console.log(
+        `💬 Chat: "${message.slice(0, 50)}..." → ${actions.length} actions`
+      );
+
+      return res.json({
+        actions,
+        message: responseMessage,
+      });
+    } catch (parseErr) {
+      console.error("Failed to parse chat JSON:", parseErr.message);
+      // If parsing fails, return the raw text as a message
+      return res.json({
+        actions: [],
+        message: raw.slice(0, 2000),
+      });
+    }
+  } catch (err) {
+    console.error("Groq chat error:", err.message);
+    return res.status(500).json({
+      error: `Chat failed: ${err.message}`,
+    });
+  }
+});
+
+// ── POST /api/export ──
+// Creates a ZIP archive from the project files and sends it as a download
+app.post("/api/export", (req, res) => {
+  const { files, projectName } = req.body;
+
+  if (!files || typeof files !== "object" || Object.keys(files).length === 0) {
+    return res.status(400).json({ error: "No files to export." });
+  }
+
+  const zipName = (projectName || "project").replace(/[^a-z0-9_-]/gi, "-");
+
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename="${zipName}.zip"`);
+
+  const archive = archiver("zip", { zlib: { level: 6 } });
+
+  archive.on("error", (err) => {
+    console.error("Archive error:", err.message);
+    res.status(500).end();
+  });
+
+  archive.pipe(res);
+
+  // Add each file to the archive
+  Object.entries(files).forEach(([filePath, content]) => {
+    // Skip .gitkeep placeholder files
+    if (filePath.endsWith(".gitkeep") && content === "") return;
+    archive.append(content || "", { name: filePath });
+  });
+
+  archive.finalize();
 });
 
 // ── Start Server ──

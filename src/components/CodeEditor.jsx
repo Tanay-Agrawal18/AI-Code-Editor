@@ -1,32 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
-import { ChevronDown, Minus, Plus, Loader2 } from "lucide-react";
+import { ChevronDown, Minus, Plus, Loader2, X } from "lucide-react";
 
-const defaultCode = `// Welcome to AI Code Editor ✨
-// Write or paste your code here, then use AI tools to:
-//   • Explain — Understand what your code does
-//   • Optimize / Debug / Clean — Transform with AI
-//   • Visualize — See function relationships
-
-function fibonacci(n) {
-  if (n <= 1) return n;
-  return fibonacci(n - 1) + fibonacci(n - 2);
-}
-
-function factorial(n) {
-  if (n <= 1) return 1;
-  return n * factorial(n - 1);
-}
-
-function main() {
-  const fib10 = fibonacci(10);
-  const fact5 = factorial(5);
-  
-  console.log("Fibonacci(10):", fib10);
-  console.log("Factorial(5):", fact5);
-}
-
-main();`;
+const AUTOCOMPLETE_URL = "http://127.0.0.1:5000/api/autocomplete";
+const DEBOUNCE_MS = 400;
 
 const LANGUAGES = [
   { value: "javascript", label: "JavaScript", color: "#f7df1e" },
@@ -37,18 +14,224 @@ const LANGUAGES = [
   { value: "json", label: "JSON", color: "#292929" },
 ];
 
-export default function CodeEditor({ editorRef }) {
-  const [language, setLanguage] = useState("javascript");
-  const [fontSize, setFontSize] = useState(14);
+// Map file extensions to Monaco languages
+const EXT_TO_LANGUAGE = {
+  js: "javascript",
+  jsx: "javascript",
+  ts: "typescript",
+  tsx: "typescript",
+  py: "python",
+  html: "html",
+  css: "css",
+  json: "json",
+  md: "markdown",
+  txt: "plaintext",
+};
 
-  const handleEditorMount = (editor) => {
+function getLanguageFromFileName(fileName) {
+  if (!fileName) return "javascript";
+  const ext = fileName.split(".").pop().toLowerCase();
+  return EXT_TO_LANGUAGE[ext] || "plaintext";
+}
+
+function getFileNameFromPath(path) {
+  if (!path) return "untitled";
+  const parts = path.split("/");
+  return parts[parts.length - 1];
+}
+
+export default function CodeEditor({
+  editorRef,
+  activeFile,
+  fileContent,
+  onContentChange,
+  openTabs = [],
+  onSelectTab,
+  onCloseTab,
+}) {
+  const [fontSize, setFontSize] = useState(14);
+  const [language, setLanguage] = useState("javascript");
+  const monacoEditorRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const debounceTimerRef = useRef(null);
+  const providerDisposableRef = useRef(null);
+
+  const fileName = getFileNameFromPath(activeFile);
+
+  // Derive language from active file
+  useEffect(() => {
+    const lang = getLanguageFromFileName(fileName);
+    setLanguage(lang);
+  }, [fileName]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (providerDisposableRef.current) {
+        providerDisposableRef.current.dispose();
+      }
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
+  const handleEditorMount = (editor, monaco) => {
+    monacoEditorRef.current = editor;
     if (editorRef) editorRef.current = editor;
+
+    // ── Register AI Inline Completions Provider ──
+    providerDisposableRef.current =
+      monaco.languages.registerInlineCompletionsProvider("*", {
+        provideInlineCompletions: (model, position, _context, token) => {
+          return new Promise((resolve) => {
+            // Cancel any pending debounce
+            if (debounceTimerRef.current) {
+              clearTimeout(debounceTimerRef.current);
+            }
+
+            // If cancellation already requested, bail out
+            if (token.isCancellationRequested) {
+              return resolve({ items: [] });
+            }
+
+            debounceTimerRef.current = setTimeout(async () => {
+              // Cancel previous in-flight request
+              if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+              }
+
+              // Abort if Monaco already cancelled
+              if (token.isCancellationRequested) {
+                return resolve({ items: [] });
+              }
+
+              const controller = new AbortController();
+              abortControllerRef.current = controller;
+
+              // Listen for Monaco cancellation
+              token.onCancellationRequested(() => {
+                controller.abort();
+              });
+
+              const codeBeforeCursor = model.getValueInRange({
+                startLineNumber: 1,
+                startColumn: 1,
+                endLineNumber: position.lineNumber,
+                endColumn: position.column,
+              });
+
+              // Don't autocomplete for very short input
+              if (codeBeforeCursor.trim().length < 8) {
+                return resolve({ items: [] });
+              }
+
+              try {
+                const res = await fetch(AUTOCOMPLETE_URL, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    code: codeBeforeCursor,
+                    language:
+                      model.getLanguageId?.() ||
+                      getLanguageFromFileName(activeFile),
+                  }),
+                  signal: controller.signal,
+                });
+
+                if (!res.ok || token.isCancellationRequested) {
+                  return resolve({ items: [] });
+                }
+
+                const data = await res.json();
+
+                if (!data.suggestion || !data.suggestion.trim()) {
+                  return resolve({ items: [] });
+                }
+
+                resolve({
+                  items: [
+                    {
+                      insertText: data.suggestion,
+                      range: {
+                        startLineNumber: position.lineNumber,
+                        startColumn: position.column,
+                        endLineNumber: position.lineNumber,
+                        endColumn: position.column,
+                      },
+                    },
+                  ],
+                });
+              } catch (err) {
+                // Silently ignore aborted requests or network errors
+                resolve({ items: [] });
+              }
+            }, DEBOUNCE_MS);
+          });
+        },
+
+        freeInlineCompletions: () => {
+          // No-op cleanup
+        },
+      });
+  };
+
+  const handleEditorChange = (value) => {
+    if (onContentChange) {
+      onContentChange(value || "");
+    }
   };
 
   const selectedLang = LANGUAGES.find((l) => l.value === language);
 
   return (
     <div className="editor-pane flex flex-col flex-1 min-h-0">
+      {/* ── Open Tabs Bar ── */}
+      {openTabs.length > 0 && (
+        <div className="editor-tabs-bar">
+          {openTabs.map((tabPath) => {
+            const tabName = getFileNameFromPath(tabPath);
+            const isActive = tabPath === activeFile;
+            const lang = getLanguageFromFileName(tabName);
+            const langInfo = LANGUAGES.find((l) => l.value === lang);
+
+            return (
+              <div
+                key={tabPath}
+                className={`editor-tab ${isActive ? "editor-tab-active" : ""}`}
+                onClick={() => onSelectTab && onSelectTab(tabPath)}
+              >
+                {/* Language dot */}
+                <span
+                  style={{
+                    width: "7px",
+                    height: "7px",
+                    borderRadius: "50%",
+                    background: langInfo?.color || "var(--text-muted)",
+                    flexShrink: 0,
+                  }}
+                />
+                <span className="editor-tab-name">{tabName}</span>
+                {/* Close button */}
+                <button
+                  className="editor-tab-close"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCloseTab && onCloseTab(tabPath);
+                  }}
+                  title="Close"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* ── Editor Toolbar ── */}
       <div
         className="flex items-center justify-between shrink-0"
@@ -111,7 +294,10 @@ export default function CodeEditor({ editorRef }) {
         </div>
 
         {/* Center: File info */}
-        <div className="file-indicator-center flex items-center" style={{ gap: "6px" }}>
+        <div
+          className="file-indicator-center flex items-center"
+          style={{ gap: "6px" }}
+        >
           <span
             style={{
               width: "6px",
@@ -128,7 +314,7 @@ export default function CodeEditor({ editorRef }) {
               fontFamily: "'JetBrains Mono', monospace",
             }}
           >
-            main.js
+            {fileName}
           </span>
         </div>
 
@@ -208,9 +394,10 @@ export default function CodeEditor({ editorRef }) {
         <Editor
           height="100%"
           language={language}
-          defaultValue={defaultCode}
+          value={fileContent}
           theme="vs-dark"
           onMount={handleEditorMount}
+          onChange={handleEditorChange}
           options={{
             fontSize,
             fontFamily:
@@ -229,6 +416,8 @@ export default function CodeEditor({ editorRef }) {
             scrollBeyondLastLine: false,
             tabSize: 2,
             suggest: { showMethods: true, showFunctions: true },
+            inlineSuggest: { enabled: true },
+            quickSuggestions: true,
             guides: {
               indentation: true,
               bracketPairs: true,
@@ -241,7 +430,10 @@ export default function CodeEditor({ editorRef }) {
               className="flex items-center justify-center h-full"
               style={{ background: "var(--bg-base)" }}
             >
-              <div className="flex flex-col items-center" style={{ gap: "12px" }}>
+              <div
+                className="flex flex-col items-center"
+                style={{ gap: "12px" }}
+              >
                 <Loader2
                   size={28}
                   style={{
