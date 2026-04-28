@@ -19,9 +19,10 @@ import {
   updateProject,
 } from "../utils/projectManager";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-if (!import.meta.env.VITE_API_URL) {
-  console.warn("VITE_API_URL is undefined, falling back to http://localhost:5000");
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL) {
+  throw new Error("VITE_API_URL is not defined");
 }
 const EXPLAIN_URL = `${API_URL}/api/explain`;
 const INTENT_URL = `${API_URL}/api/intent`;

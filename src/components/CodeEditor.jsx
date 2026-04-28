@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { ChevronDown, Minus, Plus, Loader2, X } from "lucide-react";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-if (!import.meta.env.VITE_API_URL) {
-  console.warn("VITE_API_URL is undefined, falling back to http://localhost:5000");
+const API_URL = import.meta.env.VITE_API_URL;
+
+if (!API_URL) {
+  throw new Error("VITE_API_URL is not defined");
 }
 const AUTOCOMPLETE_URL = `${API_URL}/api/autocomplete`;
 const DEBOUNCE_MS = 400;
