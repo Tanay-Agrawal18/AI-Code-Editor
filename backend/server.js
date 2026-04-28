@@ -2,8 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const Groq = require("groq-sdk");
 const archiver = require("archiver");
+const { parseCodeFallback } = require("./utils/parser");
+const { fetchGitHubTree } = require("./utils/github");
 require("dotenv").config();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
@@ -68,7 +69,6 @@ app.post("/api/explain", async (req, res) => {
 
     return res.json({ explanation });
   } catch (err) {
-    console.error("Groq explain error:", err.message);
     return res.status(500).json({
       error: `Failed to get explanation: ${err.message}`,
     });
@@ -116,7 +116,6 @@ app.post("/api/intent", async (req, res) => {
 
     return res.json({ result: cleaned });
   } catch (err) {
-    console.error("Groq intent error:", err.message);
     return res.status(500).json({
       error: `Failed to apply intent: ${err.message}`,
     });
@@ -124,57 +123,6 @@ app.post("/api/intent", async (req, res) => {
 });
 
 // ── POST /api/visualize ──
-// Deterministic regex-based code parser (fast, no API call needed)
-function parseCodeFallback(code) {
-  const nodes = new Set();
-  const edges = [];
-
-  const funcPatterns = [
-    /function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-    /(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\(/g,
-    /(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?function/g,
-    /([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\([^)]*\)\s*\{/g,
-    /def\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-    /([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g,
-  ];
-
-  for (const pat of funcPatterns) {
-    let m;
-    while ((m = pat.exec(code)) !== null) {
-      const name = m[1];
-      if (!["if", "for", "while", "switch", "catch", "return", "class", "import", "export", "from", "require", "console"].includes(name)) {
-        nodes.add(name);
-      }
-    }
-  }
-
-  if (nodes.size === 0) {
-    return { nodes: [], edges: [] };
-  }
-
-  const nodeArr = [...nodes];
-
-  const funcBodyPattern = /(?:function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)|(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?(?:function|\([^)]*\)\s*=>))\s*[^{]*\{/g;
-  let bodyMatch;
-
-  while ((bodyMatch = funcBodyPattern.exec(code)) !== null) {
-    const caller = bodyMatch[1] || bodyMatch[2];
-    if (!caller || !nodes.has(caller)) continue;
-
-    const restOfCode = code.slice(bodyMatch.index + bodyMatch[0].length);
-    const body = restOfCode.slice(0, 2000);
-
-    for (const target of nodeArr) {
-      if (target === caller) continue;
-      const callPattern = new RegExp(`\\b${target}\\s*\\(`, "g");
-      if (callPattern.test(body)) {
-        edges.push({ from: caller, to: target });
-      }
-    }
-  }
-
-  return { nodes: nodeArr, edges };
-}
 
 app.post("/api/visualize", async (req, res) => {
   const { code } = req.body;
@@ -231,7 +179,6 @@ Rules:
 
       return res.json({ nodes, edges });
     } catch (parseErr) {
-      console.error("Failed to parse Groq JSON:", parseErr.message);
       return res.status(200).json({
         nodes: [],
         edges: [],
@@ -239,7 +186,6 @@ Rules:
       });
     }
   } catch (err) {
-    console.error("Groq visualize error:", err.message);
     return res.status(200).json({
       nodes: [],
       edges: [],
@@ -335,13 +281,11 @@ Rules:
 
       return res.json({ projectName, files: validFiles });
     } catch (parseErr) {
-      console.error("Failed to parse generate-project JSON:", parseErr.message);
       return res.status(502).json({
         error: "Failed to parse AI response. Try simplifying your prompt.",
       });
     }
   } catch (err) {
-    console.error("Groq generate-project error:", err.message);
     return res.status(500).json({
       error: `Failed to generate project: ${err.message}`,
     });
@@ -393,110 +337,11 @@ app.post("/api/autocomplete", async (req, res) => {
 
     return res.json({ suggestion });
   } catch (err) {
-    console.error("Groq autocomplete error:", err.message);
     return res.json({ suggestion: "" });
   }
 });
 
 // ── POST /api/github/import ──
-// Fetches a public GitHub repository's file tree and contents
-async function fetchGitHubTree(owner, repo, branch = "main") {
-  const GITHUB_TOKEN = process.env.GITHUB_TOKEN || "";
-  const headers = {
-    Accept: "application/vnd.github.v3+json",
-    "User-Agent": "AI-Code-Editor",
-  };
-  if (GITHUB_TOKEN) {
-    headers.Authorization = `token ${GITHUB_TOKEN}`;
-  }
-
-  // 1. Try to get the recursive tree using Git Trees API (fast, single call)
-  async function tryBranch(branchName) {
-    const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branchName}?recursive=1`;
-    const res = await fetch(treeUrl, { headers });
-    if (!res.ok) return null;
-    return res.json();
-  }
-
-  let treeData = await tryBranch(branch);
-  if (!treeData) {
-    // Fallback: try "master" if "main" fails
-    treeData = await tryBranch("master");
-  }
-  if (!treeData) {
-    throw new Error(
-      `Could not access repository "${owner}/${repo}". Make sure it exists and is public.`
-    );
-  }
-
-  // 2. Filter to only blobs (files), skip large files, skip common non-text
-  const SKIP_DIRS = [
-    "node_modules/",
-    ".git/",
-    "__pycache__/",
-    "dist/",
-    "build/",
-    ".next/",
-    "vendor/",
-    ".venv/",
-    "venv/",
-    ".idea/",
-    ".vscode/",
-  ];
-
-  const SKIP_EXTENSIONS = /\.(png|jpg|jpeg|gif|bmp|ico|svg|woff|woff2|ttf|eot|mp3|mp4|avi|mov|zip|tar|gz|exe|dll|so|dylib|pdf|lock|min\.js|min\.css|map)$/i;
-
-  const MAX_FILE_SIZE = 256 * 1024; // 256KB per file
-  const MAX_FILES = 150; // Cap total files to import
-
-  const blobs = (treeData.tree || [])
-    .filter((item) => {
-      if (item.type !== "blob") return false;
-      if (item.size && item.size > MAX_FILE_SIZE) return false;
-      if (SKIP_DIRS.some((dir) => item.path.includes(dir))) return false;
-      if (SKIP_EXTENSIONS.test(item.path)) return false;
-      return true;
-    })
-    .slice(0, MAX_FILES);
-
-  if (blobs.length === 0) {
-    throw new Error("No importable source files found in this repository.");
-  }
-
-  // 3. Fetch file contents in parallel (batched to avoid rate limits)
-  const BATCH_SIZE = 15;
-  const files = {};
-
-  for (let i = 0; i < blobs.length; i += BATCH_SIZE) {
-    const batch = blobs.slice(i, i + BATCH_SIZE);
-    const results = await Promise.allSettled(
-      batch.map(async (blob) => {
-        const contentUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${blob.path}?ref=${treeData.sha || branch}`;
-        const res = await fetch(contentUrl, { headers });
-        if (!res.ok) return null;
-
-        const data = await res.json();
-        if (!data.content) return null;
-
-        try {
-          // GitHub returns base64-encoded content
-          const decoded = Buffer.from(data.content, "base64").toString("utf-8");
-          return { path: blob.path, content: decoded };
-        } catch {
-          return null;
-        }
-      })
-    );
-
-    results.forEach((r) => {
-      if (r.status === "fulfilled" && r.value) {
-        files[r.value.path] = r.value.content;
-      }
-    });
-  }
-
-  return files;
-}
 
 app.post("/api/github/import", async (req, res) => {
   const { repoUrl } = req.body;
@@ -540,7 +385,6 @@ app.post("/api/github/import", async (req, res) => {
       }
     }
 
-    console.log(`📦 Importing GitHub repo: ${owner}/${repo} (branch: ${branch})`);
 
     const files = await fetchGitHubTree(owner, repo, branch);
 
@@ -549,7 +393,6 @@ app.post("/api/github/import", async (req, res) => {
       return res.status(404).json({ error: "No files found in this repository." });
     }
 
-    console.log(`✅ Imported ${fileCount} files from ${owner}/${repo}`);
 
     return res.json({
       owner,
@@ -559,7 +402,6 @@ app.post("/api/github/import", async (req, res) => {
       files,
     });
   } catch (err) {
-    console.error("GitHub import error:", err.message);
     return res.status(500).json({
       error: err.message || "Failed to import repository.",
     });
@@ -670,7 +512,6 @@ Rules:
       // The failed_generation field often contains parseable JSON we can salvage.
       const errBody = groqErr?.error || groqErr;
       if (errBody?.failed_generation) {
-        console.log("⚠️ Recovering from Groq json_validate_failed…");
         raw = errBody.failed_generation;
       } else {
         throw groqErr;
@@ -760,9 +601,6 @@ Rules:
         0
       );
 
-      console.log(
-        `🤖 Agent: "${message.slice(0, 50)}..." → ${steps.length} steps, ${totalActions} actions`
-      );
 
       // ── Self-Review Pass — verify generated code quality ──
       let fixSteps = [];
@@ -850,18 +688,13 @@ Rules:
                   }
 
                   const issueCount = reviewResult.issues?.length || 0;
-                  console.log(
-                    `🔍 Self-review: confidence=${confidence.toFixed(2)}, issues=${issueCount}, fixes=${fixSteps.length}`
-                  );
                 }
               } catch (reviewParseErr) {
-                console.error("⚠️ Self-review parse failed:", reviewParseErr.message);
                 // Non-critical — continue without fixes
               }
             }
           }
         } catch (reviewErr) {
-          console.error("⚠️ Self-review call failed:", reviewErr.message);
           // Non-critical — continue without fixes
         }
       }
@@ -873,7 +706,6 @@ Rules:
         message: responseMessage,
       });
     } catch (parseErr) {
-      console.error("Failed to parse chat JSON:", parseErr.message);
       // If parsing fails, return the raw text as a message
       return res.json({
         steps: [],
@@ -881,7 +713,6 @@ Rules:
       });
     }
   } catch (err) {
-    console.error("Groq chat error:", err.message);
     return res.status(500).json({
       error: `Chat failed: ${err.message}`,
     });
@@ -905,7 +736,6 @@ app.post("/api/export", (req, res) => {
   const archive = archiver("zip", { zlib: { level: 6 } });
 
   archive.on("error", (err) => {
-    console.error("Archive error:", err.message);
     res.status(500).end();
   });
 

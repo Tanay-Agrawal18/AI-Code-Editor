@@ -1,17 +1,17 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import CodeEditor from "../components/CodeEditor";
 import TabPanel from "../components/TabPanel";
 import FloatingToolbar from "../components/FloatingToolbar";
-import FlowView from "../components/FlowView";
+const FlowView = lazy(() => import("../components/FlowView"));
 import ToastContainer from "../components/ToastContainer";
 import StatusBar from "../components/StatusBar";
 import FileExplorer from "../components/FileExplorer";
-import AIProjectGenerator from "../components/AIProjectGenerator";
-import GitHubImport from "../components/GitHubImport";
+const AIProjectGenerator = lazy(() => import("../components/AIProjectGenerator"));
+const GitHubImport = lazy(() => import("../components/GitHubImport"));
 import ChatPanel from "../components/ChatPanel";
-import ActionPreviewModal from "../components/ActionPreviewModal";
+const ActionPreviewModal = lazy(() => import("../components/ActionPreviewModal"));
 import { formatCode } from "../utils/formatter";
 import {
   getActiveProjectId,
@@ -1119,44 +1119,52 @@ export default function Home() {
 
       {/* ── AI Project Generator Overlay ── */}
       {showGenerator && (
-        <AIProjectGenerator
-          onGenerate={handleGenerateProject}
-          onClose={() => setShowGenerator(false)}
-          onToast={addToast}
-        />
+        <Suspense fallback={null}>
+          <AIProjectGenerator
+            onGenerate={handleGenerateProject}
+            onClose={() => setShowGenerator(false)}
+            onToast={addToast}
+          />
+        </Suspense>
       )}
 
       {/* ── GitHub Import Overlay ── */}
       {showGitHubImport && (
-        <GitHubImport
-          onImport={handleGitHubImport}
-          onClose={() => setShowGitHubImport(false)}
-          onToast={addToast}
-        />
+        <Suspense fallback={null}>
+          <GitHubImport
+            onImport={handleGitHubImport}
+            onClose={() => setShowGitHubImport(false)}
+            onToast={addToast}
+          />
+        </Suspense>
       )}
 
       {/* ── Flow Visualization Overlay ── */}
       {showFlowView && (
-        <FlowView
-          data={vizData}
-          loading={vizLoading}
-          error={vizError}
-          onClose={() => {
-            setShowFlowView(false);
-            setVizData(null);
-            setVizError("");
-          }}
-        />
+        <Suspense fallback={null}>
+          <FlowView
+            data={vizData}
+            loading={vizLoading}
+            error={vizError}
+            onClose={() => {
+              setShowFlowView(false);
+              setVizData(null);
+              setVizError("");
+            }}
+          />
+        </Suspense>
       )}
 
       {/* ── Action Preview Modal ── */}
       {showPreviewModal && pendingActions && (
-        <ActionPreviewModal
-          actions={pendingActions}
-          onApply={handleApplyPendingActions}
-          onCancel={handleCancelPendingActions}
-          existingFiles={files}
-        />
+        <Suspense fallback={null}>
+          <ActionPreviewModal
+            actions={pendingActions}
+            onApply={handleApplyPendingActions}
+            onCancel={handleCancelPendingActions}
+            existingFiles={files}
+          />
+        </Suspense>
       )}
 
       {/* ── Toast Notifications ── */}
