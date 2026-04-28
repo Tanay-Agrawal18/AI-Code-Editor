@@ -1,68 +1,108 @@
-# 🚀 AI Code Editor (Cursor-style IDE)
+# 🚀 AI Code Editor — Autonomous Agentic IDE
 
-A powerful **AI-powered Code Editor** inspired by tools like Cursor and Antigravity — built to help developers write, understand, and modify code faster using AI.
+A next-generation **AI-powered code editor** that transforms natural language into complete, structured codebases using an autonomous agent pipeline.
 
----
-
-## ✨ Features
-
-### 🧠 AI Capabilities
-
-* 💬 AI Chat Panel (multi-file editing)
-* ⚡ AI Code Optimization
-* 📖 Explain Code (step-by-step)
-* 🏗️ AI Project Generator (full scaffolding)
-* 🤖 Autocomplete (inline suggestions)
+Built to replicate and extend the capabilities of tools like Cursor and Antigravity.
 
 ---
 
-### 🛡️ Smart AI Safety System
+## 🧠 Core Idea
 
-* 🔍 **Action Preview before applying changes**
-* 🆚 **Diff Viewer (before vs after)**
-* 🔄 **Undo / Redo system**
-* 📜 **History tracking**
+This editor doesn’t just generate code — it **plans, executes, reviews, and fixes** it.
 
-> Ensures AI never blindly modifies your code.
-
----
-
-### 📁 Project Management
-
-* 📦 Multi-project dashboard
-* 💾 Auto-save system
-* 🔄 Switch between projects instantly
-* 📊 Project stats (files, language, modified time)
+```text
+Prompt → Plan → Execute → Review → Diff → Apply → Undo → Self-Correct
+```
 
 ---
 
-### 🔗 Integrations
+## ✨ Key Features
 
-* 📥 GitHub Repository Import
-* 📤 Export project as ZIP
-* ⚡ Groq API for fast AI responses
+### 🤖 Autonomous AI Agent
 
----
-
-### 🎨 UI/UX
-
-* VS Code inspired interface
-* Glassmorphism design
-* Responsive layout (desktop + mobile)
-* Keyboard shortcuts for power users
+* Step-by-step execution engine
+* Multi-file create/update/delete actions
+* Self-correction pass (auto-fixes errors)
+* Confidence scoring system
 
 ---
 
-## 🧠 How It Works
+### 🛡️ Safe AI Workflow
 
-AI operates in a safe workflow:
+* 🔍 Action Preview before applying changes
+* 🆚 Side-by-side Diff Viewer (Monaco)
+* 🔄 Undo / Redo system with history
+* 🧠 Self-review before execution
 
-AI → Preview → Diff → Apply → Undo
+---
 
-* AI suggests changes
-* User reviews them
-* Changes are applied safely
-* Can be reverted anytime
+### 💬 AI Chat Control Panel
+
+* Natural language → full project changes
+* Plan checklist with execution states
+* Multi-step agent visualization
+* Context-aware (entire codebase aware)
+
+---
+
+### ⚡ Developer Experience
+
+* Monaco Editor with inline AI autocomplete
+* Auto-formatting (Prettier integration)
+* Multi-file editing system
+* File Explorer with nested structure
+
+---
+
+### 📁 Project System
+
+* Multi-project dashboard
+* Auto-save (localStorage)
+* Import from GitHub
+* Export as ZIP
+
+---
+
+### 📊 Visualization
+
+* Code flow graph (React Flow)
+* Function relationship mapping
+
+---
+
+## 🏗️ Architecture
+
+### Frontend (React + Vite)
+
+* IDE interface + state management
+* Multi-project system
+* AI interaction layer
+
+### Backend (Node + Express)
+
+* AI orchestration layer
+* Groq API integration
+* GitHub + project generation APIs
+
+---
+
+## 🤖 AI Pipeline
+
+1. **Planning**
+
+   * Breaks prompt into structured steps
+
+2. **Execution**
+
+   * Generates file-level actions
+
+3. **Self-Correction**
+
+   * Fixes syntax & logic issues
+
+4. **User Control**
+
+   * Preview → Diff → Apply
 
 ---
 
@@ -70,29 +110,34 @@ AI → Preview → Diff → Apply → Undo
 
 **Frontend**
 
-* React + Vite
-* Tailwind CSS
+* React 18 + Vite
 * Monaco Editor
+* Framer Motion
+* Custom CSS (Glassmorphism UI)
 
 **Backend**
 
 * Node.js + Express
-* Groq API (LLM)
+* Groq API (LLMs)
+* GitHub REST API
 
 ---
 
 ## 🚀 Getting Started
 
 ```bash
-# Clone repo
-git clone https://github.com/your-username/ai-code-editor
+git clone https://github.com/Tanay-Agrawal18/AI-Code-Editor.git
+cd AI-Code-Editor
+```
 
-# Install frontend
-cd frontend
+```bash
+# Frontend
 npm install
 npm run dev
+```
 
-# Start backend
+```bash
+# Backend
 cd backend
 npm install
 node server.js
@@ -108,22 +153,19 @@ GROQ_API_KEY=your_api_key_here
 
 ---
 
+## 🎯 What Makes This Unique?
 
-## 🎯 Use Cases
-
-* Learn code faster with AI explanations
-* Build projects quickly using AI
-* Refactor and optimize code
-* Understand large codebases visually
+* Not just AI suggestions — **AI executes workflows**
+* Full **agent-based architecture**
+* Built-in **safety system (diff + undo + preview)**
+* Designed like a **real developer tool, not a demo**
 
 ---
 
-## 🧑‍💻 Author
+## 👨‍💻 Author
 
 **Tanay Agrawal**
 
 ---
 
-## ⭐ Star This Repo
-
-If you found this useful, consider giving it a star ⭐
+⭐ If you like this project, consider starring the repo!
