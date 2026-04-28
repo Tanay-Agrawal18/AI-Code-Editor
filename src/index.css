@@ -2173,3 +2173,303 @@ body,
     box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4) !important;
   }
 }
+
+/* ══════════════════════════════════════════════════
+   AGENT MODE — PLAN CHECKLIST
+   ══════════════════════════════════════════════════ */
+
+.agent-plan-checklist {
+  max-width: 92%;
+  border-radius: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.06) 0%,
+    rgba(139, 92, 246, 0.04) 100%
+  );
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  overflow: hidden;
+  animation: fadeInUp 0.3s var(--ease-smooth);
+}
+
+.agent-plan-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(99, 102, 241, 0.06);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.agent-plan-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(99, 102, 241, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.agent-plan-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-primary-light);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.agent-plan-count {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.agent-plan-steps {
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.agent-plan-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  animation: agentStepIn 0.35s var(--ease-spring) both;
+}
+
+.agent-plan-step:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.agent-plan-step-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--text-muted);
+  transition: color 0.3s ease;
+}
+
+.agent-plan-step.completed .agent-plan-step-icon {
+  color: #34d399;
+}
+
+.agent-plan-step-text {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.agent-plan-step.completed .agent-plan-step-text {
+  color: var(--text-primary);
+}
+
+/* ── Step Execution Progress Bar ── */
+
+.agent-step-progress-bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.agent-step-progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    #6366f1,
+    #8b5cf6,
+    #34d399
+  );
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Running Step State ── */
+
+.agent-plan-step.running {
+  background: rgba(99, 102, 241, 0.08);
+  border-left: 2px solid #818cf8;
+  padding-left: 6px;
+}
+
+.agent-plan-step.running .agent-plan-step-icon {
+  color: #818cf8;
+}
+
+.agent-plan-step.running .agent-plan-step-text {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ── Step Content Wrapper ── */
+
+.agent-step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.agent-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* ── Agent Thinking Bubble ── */
+
+.agent-thinking-bubble {
+  padding: 10px 16px;
+  border-radius: 14px 14px 14px 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 180px;
+}
+
+.agent-thinking-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.agent-thinking-bar-fill {
+  height: 100%;
+  width: 40%;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--accent-primary),
+    var(--accent-secondary),
+    var(--accent-primary)
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite, agentBarExpand 4s ease-in-out infinite;
+}
+
+/* ── Agent Mode Animations ── */
+
+@keyframes agentStepIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes agentBarExpand {
+  0% {
+    width: 20%;
+  }
+  50% {
+    width: 70%;
+  }
+  100% {
+    width: 20%;
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   SELF-CORRECTION — Fix Steps & Confidence
+   ══════════════════════════════════════════════════ */
+
+/* ── Fix Step — purple-themed step ── */
+
+.agent-plan-step.fix-step {
+  border-left: 2px solid rgba(139, 92, 246, 0.4);
+  padding-left: 6px;
+}
+
+.agent-plan-step.fix-step.completed .agent-plan-step-icon {
+  color: #a78bfa;
+}
+
+.agent-plan-step.fix-step.running {
+  background: rgba(139, 92, 246, 0.08);
+  border-left: 2px solid #a78bfa;
+}
+
+.agent-plan-step.fix-step.running .agent-plan-step-icon {
+  color: #a78bfa;
+}
+
+.agent-plan-step.fix-step.running .agent-plan-step-text {
+  color: #c4b5fd;
+}
+
+/* ── Fix Divider ── */
+
+.agent-fix-divider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 4px;
+  margin-top: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #a78bfa;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  position: relative;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.agent-fix-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.3), transparent);
+  margin-left: 4px;
+}
+
+/* ── Self-Corrected Notice ── */
+
+.agent-self-corrected-notice {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  font-size: 10px;
+  font-weight: 600;
+  color: #a78bfa;
+  animation: fadeIn 0.3s ease-out;
+  letter-spacing: 0.02em;
+}
+
+/* ── Confidence Badge animation ── */
+
+.agent-confidence-badge {
+  animation: fadeIn 0.3s ease-out, confidencePop 0.4s var(--ease-spring);
+}
+
+@keyframes confidencePop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

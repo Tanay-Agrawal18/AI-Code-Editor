@@ -12,6 +12,13 @@ import {
   Sparkles,
   ArrowDown,
   Trash2,
+  CheckCircle2,
+  Circle,
+  Brain,
+  Zap,
+  ListChecks,
+  Shield,
+  ShieldCheck,
 } from "lucide-react";
 
 const CHAT_URL = "http://127.0.0.1:5000/api/chat";
@@ -63,6 +70,91 @@ function ActionBadge({ action }) {
       {c.icon}
       <span style={{ opacity: 0.7 }}>{c.label}</span>
       <span>{action.path}</span>
+    </div>
+  );
+}
+
+// ── Step Executor — shows steps with per-step status ──
+function StepExecutor({ steps, stepStatuses, currentStepIndex, fixStepCount = 0 }) {
+  if (!steps || steps.length === 0) return null;
+
+  const completedCount = stepStatuses.filter((s) => s === "done").length;
+  const mainStepCount = steps.length - fixStepCount;
+
+  return (
+    <div className="agent-plan-checklist">
+      <div className="agent-plan-header">
+        <div className="agent-plan-icon">
+          <ListChecks size={12} color="#818cf8" />
+        </div>
+        <span className="agent-plan-title">Execution Plan</span>
+        <span className="agent-plan-count">
+          {completedCount} / {steps.length} steps
+        </span>
+      </div>
+
+      {/* Progress bar */}
+      <div className="agent-step-progress-bar">
+        <div
+          className="agent-step-progress-fill"
+          style={{ width: `${(completedCount / steps.length) * 100}%` }}
+        />
+      </div>
+
+      <div className="agent-plan-steps">
+        {steps.map((step, i) => {
+          const status = stepStatuses[i] || "pending";
+          const isFixStep = fixStepCount > 0 && i >= mainStepCount;
+          const statusClass =
+            status === "done"
+              ? "completed"
+              : status === "running"
+              ? "running"
+              : "";
+
+          return (
+            <div key={i}>
+              {/* Divider before fix steps */}
+              {isFixStep && i === mainStepCount && (
+                <div className="agent-fix-divider">
+                  <Shield size={10} />
+                  <span>Self-Correction</span>
+                </div>
+              )}
+              <div
+                className={`agent-plan-step ${statusClass} ${isFixStep ? "fix-step" : ""}`}
+                style={{ animationDelay: `${i * 0.1}s` }}
+              >
+                <div className="agent-plan-step-icon">
+                  {status === "done" ? (
+                    <CheckCircle2 size={14} />
+                  ) : status === "running" ? (
+                    <Loader2
+                      size={14}
+                      style={{ animation: "spin 1s linear infinite" }}
+                    />
+                  ) : (
+                    <Circle size={14} />
+                  )}
+                </div>
+                <div className="agent-step-content">
+                  <span className="agent-plan-step-text">{step.title}</span>
+                  {/* Show action badges for completed or running step */}
+                  {(status === "done" || status === "running") &&
+                    step.actions &&
+                    step.actions.length > 0 && (
+                      <div className="agent-step-actions">
+                        {step.actions.map((action, j) => (
+                          <ActionBadge key={j} action={action} />
+                        ))}
+                      </div>
+                    )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -122,9 +214,32 @@ function ChatMessage({ msg }) {
             textTransform: "uppercase",
           }}
         >
-          {isUser ? "You" : "AI Assistant"}
+          {isUser ? "You" : "AI Agent"}
         </span>
       </div>
+
+      {/* Step Executor (only for AI messages with steps) */}
+      {!isUser && msg.steps && msg.steps.length > 0 && (
+        <StepExecutor
+          steps={msg.steps}
+          stepStatuses={msg.stepStatuses || msg.steps.map(() => "done")}
+          currentStepIndex={-1}
+          fixStepCount={msg.fixStepCount || 0}
+        />
+      )}
+
+      {/* Confidence Badge */}
+      {!isUser && typeof msg.confidence === "number" && (
+        <ConfidenceBadge confidence={msg.confidence} />
+      )}
+
+      {/* Self-correction notice */}
+      {!isUser && msg.fixStepCount > 0 && (
+        <div className="agent-self-corrected-notice">
+          <Shield size={11} />
+          <span>Self-corrected {msg.fixStepCount} issue{msg.fixStepCount > 1 ? "s" : ""}</span>
+        </div>
+      )}
 
       {/* Message Bubble */}
       <div
@@ -145,28 +260,88 @@ function ChatMessage({ msg }) {
       >
         {msg.content}
       </div>
-
-      {/* File Actions */}
-      {msg.actions && msg.actions.length > 0 && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "4px",
-            maxWidth: "92%",
-          }}
-        >
-          {msg.actions.map((action, i) => (
-            <ActionBadge key={i} action={action} />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
 
-// ── Thinking indicator ──
-function ThinkingIndicator() {
+// ── Confidence Badge ──
+function ConfidenceBadge({ confidence }) {
+  if (typeof confidence !== "number") return null;
+
+  let label, color, bg, border;
+  if (confidence >= 0.85) {
+    label = "High";
+    color = "#34d399";
+    bg = "rgba(16,185,129,0.1)";
+    border = "rgba(16,185,129,0.25)";
+  } else if (confidence >= 0.6) {
+    label = "Medium";
+    color = "#fbbf24";
+    bg = "rgba(245,158,11,0.1)";
+    border = "rgba(245,158,11,0.25)";
+  } else {
+    label = "Low";
+    color = "#f87171";
+    bg = "rgba(239,68,68,0.1)";
+    border = "rgba(239,68,68,0.25)";
+  }
+
+  return (
+    <div
+      className="agent-confidence-badge"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "5px",
+        padding: "3px 9px",
+        borderRadius: "8px",
+        background: bg,
+        border: `1px solid ${border}`,
+        fontSize: "10px",
+        fontWeight: 700,
+        color,
+        fontFamily: "'JetBrains Mono', monospace",
+        animation: "fadeIn 0.3s ease-out",
+      }}
+    >
+      <ShieldCheck size={11} />
+      <span>Confidence: {label}</span>
+      <span style={{ opacity: 0.6 }}>({Math.round(confidence * 100)}%)</span>
+    </div>
+  );
+}
+
+// ── Agent Thinking indicator with phases ──
+function AgentThinkingIndicator({ phase }) {
+  const phases = {
+    thinking: {
+      icon: <Brain size={12} color="#fff" />,
+      label: "Thinking…",
+      gradient: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+      glow: "rgba(99,102,241,0.3)",
+    },
+    planning: {
+      icon: <ListChecks size={12} color="#fff" />,
+      label: "Building plan…",
+      gradient: "linear-gradient(135deg, #f59e0b, #fbbf24)",
+      glow: "rgba(245,158,11,0.3)",
+    },
+    executing: {
+      icon: <Zap size={12} color="#fff" />,
+      label: "Executing actions…",
+      gradient: "linear-gradient(135deg, #10b981, #34d399)",
+      glow: "rgba(16,185,129,0.3)",
+    },
+    reviewing: {
+      icon: <Shield size={12} color="#fff" />,
+      label: "Self-correcting…",
+      gradient: "linear-gradient(135deg, #8b5cf6, #a78bfa)",
+      glow: "rgba(139,92,246,0.4)",
+    },
+  };
+
+  const p = phases[phase] || phases.thinking;
+
   return (
     <div
       style={{
@@ -184,54 +359,55 @@ function ThinkingIndicator() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #10b981, #34d399)",
-          boxShadow: "0 2px 8px rgba(16,185,129,0.3)",
+          background: p.gradient,
+          boxShadow: `0 2px 8px ${p.glow}`,
           flexShrink: 0,
           animation: "thinkPulse 2s ease-in-out infinite",
         }}
       >
-        <Bot size={12} color="#fff" />
+        {p.icon}
       </div>
-      <div
-        style={{
-          padding: "10px 16px",
-          borderRadius: "14px 14px 14px 4px",
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid var(--border-default)",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}
-      >
-        <Loader2
-          size={14}
+      <div className="agent-thinking-bubble">
+        <div className="agent-thinking-bar">
+          <div className="agent-thinking-bar-fill" />
+        </div>
+        <div
           style={{
-            color: "var(--accent-primary-light)",
-            animation: "spin 1s linear infinite",
-          }}
-        />
-        <span
-          style={{
-            fontSize: "12px",
-            color: "var(--text-secondary)",
-            fontStyle: "italic",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
           }}
         >
-          AI is thinking…
-        </span>
-        <div style={{ display: "flex", gap: "3px" }}>
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              style={{
-                width: "4px",
-                height: "4px",
-                borderRadius: "50%",
-                background: "var(--accent-primary-light)",
-                animation: `dotBounce 1.2s ease-in-out ${i * 0.15}s infinite`,
-              }}
-            />
-          ))}
+          <Loader2
+            size={14}
+            style={{
+              color: "var(--accent-primary-light)",
+              animation: "spin 1s linear infinite",
+            }}
+          />
+          <span
+            style={{
+              fontSize: "12px",
+              color: "var(--text-secondary)",
+              fontStyle: "italic",
+            }}
+          >
+            {p.label}
+          </span>
+          <div style={{ display: "flex", gap: "3px" }}>
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                style={{
+                  width: "4px",
+                  height: "4px",
+                  borderRadius: "50%",
+                  background: "var(--accent-primary-light)",
+                  animation: `dotBounce 1.2s ease-in-out ${i * 0.15}s infinite`,
+                }}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -264,9 +440,27 @@ function EmptyState() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          position: "relative",
         }}
       >
-        <Sparkles size={24} style={{ color: "var(--accent-primary-light)" }} />
+        <Brain size={24} style={{ color: "var(--accent-primary-light)" }} />
+        <div
+          style={{
+            position: "absolute",
+            bottom: "-3px",
+            right: "-3px",
+            width: "18px",
+            height: "18px",
+            borderRadius: "6px",
+            background: "linear-gradient(135deg, #10b981, #34d399)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: "2px solid var(--bg-deepest)",
+          }}
+        >
+          <Zap size={9} color="#fff" />
+        </div>
       </div>
       <div style={{ textAlign: "center" }}>
         <h3
@@ -277,7 +471,7 @@ function EmptyState() {
             marginBottom: "6px",
           }}
         >
-          AI Chat Assistant
+          AI Agent Mode
         </h3>
         <p
           style={{
@@ -287,8 +481,8 @@ function EmptyState() {
             maxWidth: "240px",
           }}
         >
-          Ask me to create files, modify code, fix bugs, or explain your project.
-          I can edit multiple files at once.
+          I plan step-by-step, then execute. Ask me to build features, fix bugs,
+          or refactor code across multiple files.
         </p>
       </div>
       <div
@@ -301,9 +495,9 @@ function EmptyState() {
         }}
       >
         {[
-          "Create a login page component",
+          "Build a login page with validation",
           "Add error handling to all files",
-          "Explain the current file",
+          "Refactor components for reusability",
         ].map((suggestion, i) => (
           <div
             key={i}
@@ -318,7 +512,7 @@ function EmptyState() {
               fontFamily: "'Inter', sans-serif",
             }}
           >
-            💡 "{suggestion}"
+            🧠 "{suggestion}"
           </div>
         ))}
       </div>
@@ -339,7 +533,14 @@ export default function ChatPanel({
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [thinkingPhase, setThinkingPhase] = useState("thinking");
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+
+  // ── Step execution state ──
+  const [liveSteps, setLiveSteps] = useState([]);
+  const [liveStepStatuses, setLiveStepStatuses] = useState([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(-1);
+
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
@@ -351,7 +552,7 @@ export default function ChatPanel({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isLoading, scrollToBottom]);
+  }, [messages, isLoading, liveStepStatuses, scrollToBottom]);
 
   // ── Track scroll position for "scroll to bottom" button ──
   const handleScroll = useCallback(() => {
@@ -366,6 +567,9 @@ export default function ChatPanel({
     inputRef.current?.focus();
   }, []);
 
+  // ── Delay helper ──
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
   // ── Send message ──
   const handleSend = useCallback(async () => {
     const trimmed = input.trim();
@@ -376,6 +580,17 @@ export default function ChatPanel({
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setIsLoading(true);
+    setThinkingPhase("thinking");
+
+    // Reset step execution state
+    setLiveSteps([]);
+    setLiveStepStatuses([]);
+    setCurrentStepIndex(-1);
+
+    // Cycle through thinking phases for UX
+    const phaseTimer1 = setTimeout(() => setThinkingPhase("planning"), 1500);
+    const phaseTimer2 = setTimeout(() => setThinkingPhase("executing"), 3500);
+    const phaseTimer3 = setTimeout(() => setThinkingPhase("reviewing"), 5500);
 
     try {
       // Build conversation history (last 10 messages for context)
@@ -384,12 +599,10 @@ export default function ChatPanel({
         content: m.content,
       }));
 
-      // Smart context building: send active file + compact project tree
-      // to stay within Groq's 12K TPM free tier limit
+      // Smart context building
       const SKIP_NAMES = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", ".DS_Store", "Thumbs.db"];
       const SKIP_PATTERNS = /\.(lock|min\.js|min\.css|map|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|mp3|mp4|zip|tar|gz|exe|pdf)$/i;
 
-      // Build compact context: active file full content + tree of other files
       const contextFiles = {};
       const allPaths = [];
 
@@ -400,7 +613,6 @@ export default function ChatPanel({
 
         allPaths.push(path);
 
-        // Send full content only for the active file
         if (path === activeFile) {
           const fileContent = typeof content === "string" ? content : "";
           contextFiles[path] = fileContent.length > 6000
@@ -409,11 +621,10 @@ export default function ChatPanel({
         }
       }
 
-      // Build a lightweight payload with the file tree + active file content
       const chatPayload = {
         message: trimmed,
         files: contextFiles,
-        fileTree: allPaths, // Just the paths for project awareness
+        fileTree: allPaths,
         currentFile: activeFile,
         history,
       };
@@ -436,23 +647,139 @@ export default function ChatPanel({
         return;
       }
 
-      // Process actions
-      const actions = data.actions || [];
+      // ── Step-by-step execution engine ──
+      const steps = data.steps || [];
+      const fixSteps = data.fixSteps || [];
+      const confidence = typeof data.confidence === "number" ? data.confidence : null;
       const message = data.message || "Done.";
 
-      // Queue actions for preview instead of applying immediately
-      if (actions.length > 0) {
-        onPreviewActions(actions);
-        onToast?.("AI actions ready for review", "ai");
-      }
+      if (steps.length > 0) {
+        // Clear thinking phase — we're now in execution mode
+        clearTimeout(phaseTimer1);
+        clearTimeout(phaseTimer2);
+        clearTimeout(phaseTimer3);
+        setThinkingPhase("executing");
 
-      // Add AI message with actions
-      const aiMsg = {
-        role: "assistant",
-        content: message,
-        actions: actions.length > 0 ? actions : undefined,
-      };
-      setMessages((prev) => [...prev, aiMsg]);
+        // Initialize all steps as pending
+        const initialStatuses = steps.map(() => "pending");
+        setLiveSteps(steps);
+        setLiveStepStatuses(initialStatuses);
+
+        // Collect all actions for preview
+        const allActions = [];
+
+        // Execute steps one by one
+        for (let i = 0; i < steps.length; i++) {
+          setCurrentStepIndex(i);
+
+          // Mark current step as running
+          setLiveStepStatuses((prev) => {
+            const next = [...prev];
+            next[i] = "running";
+            return next;
+          });
+
+          // Wait for UX visibility (300-500ms)
+          await delay(350 + Math.random() * 200);
+
+          // Collect step actions
+          if (steps[i].actions && steps[i].actions.length > 0) {
+            allActions.push(...steps[i].actions);
+          }
+
+          // Mark step as done
+          setLiveStepStatuses((prev) => {
+            const next = [...prev];
+            next[i] = "done";
+            return next;
+          });
+
+          // Small pause between steps for visual effect
+          if (i < steps.length - 1) {
+            await delay(200);
+          }
+        }
+
+        // ── Self-Correction Phase ──
+        if (fixSteps.length > 0) {
+          setThinkingPhase("reviewing");
+          await delay(600);
+
+          // Append fix steps to live display
+          const combinedSteps = [...steps, ...fixSteps];
+          const combinedStatuses = [
+            ...steps.map(() => "done"),
+            ...fixSteps.map(() => "pending"),
+          ];
+          setLiveSteps(combinedSteps);
+          setLiveStepStatuses(combinedStatuses);
+
+          // Execute fix steps
+          for (let i = 0; i < fixSteps.length; i++) {
+            const globalIdx = steps.length + i;
+            setCurrentStepIndex(globalIdx);
+
+            // Mark fix step as running
+            setLiveStepStatuses((prev) => {
+              const next = [...prev];
+              next[globalIdx] = "running";
+              return next;
+            });
+
+            await delay(350 + Math.random() * 200);
+
+            // Collect fix actions
+            if (fixSteps[i].actions && fixSteps[i].actions.length > 0) {
+              allActions.push(...fixSteps[i].actions);
+            }
+
+            // Mark fix step as done
+            setLiveStepStatuses((prev) => {
+              const next = [...prev];
+              next[globalIdx] = "done";
+              return next;
+            });
+
+            if (i < fixSteps.length - 1) {
+              await delay(200);
+            }
+          }
+        }
+
+        // Queue all actions for preview
+        if (allActions.length > 0) {
+          onPreviewActions(allActions);
+          onToast?.("AI actions ready for review", "ai");
+        }
+
+        // Build final combined steps and statuses
+        const allSteps = fixSteps.length > 0 ? [...steps, ...fixSteps] : steps;
+        const finalStatuses = allSteps.map(() => "done");
+
+        // Add AI message with completed steps
+        const aiMsg = {
+          role: "assistant",
+          content: message,
+          steps: allSteps,
+          stepStatuses: finalStatuses,
+          fixStepCount: fixSteps.length,
+          confidence,
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+
+        // Clear live execution state
+        setLiveSteps([]);
+        setLiveStepStatuses([]);
+        setCurrentStepIndex(-1);
+      } else {
+        // No steps — just a text response
+        const aiMsg = {
+          role: "assistant",
+          content: message,
+          confidence,
+        };
+        setMessages((prev) => [...prev, aiMsg]);
+      }
     } catch {
       const errorMsg = {
         role: "assistant",
@@ -465,8 +792,14 @@ export default function ChatPanel({
         "error"
       );
     } finally {
+      clearTimeout(phaseTimer1);
+      clearTimeout(phaseTimer2);
+      clearTimeout(phaseTimer3);
       setIsLoading(false);
-      // Re-focus input
+      setThinkingPhase("thinking");
+      setLiveSteps([]);
+      setLiveStepStatuses([]);
+      setCurrentStepIndex(-1);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [input, isLoading, messages, files, activeFile, onPreviewActions, onToast]);
@@ -504,9 +837,10 @@ export default function ChatPanel({
               alignItems: "center",
               justifyContent: "center",
               boxShadow: "0 2px 10px var(--accent-glow)",
+              position: "relative",
             }}
           >
-            <MessageSquare size={13} color="#fff" />
+            <Brain size={13} color="#fff" />
           </div>
           <div>
             <h3
@@ -515,9 +849,27 @@ export default function ChatPanel({
                 fontWeight: 700,
                 color: "var(--text-primary)",
                 lineHeight: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
               }}
             >
-              AI Chat
+              AI Agent
+              <span
+                style={{
+                  fontSize: "9px",
+                  fontWeight: 700,
+                  padding: "1px 5px",
+                  borderRadius: "4px",
+                  background: "linear-gradient(135deg, rgba(16,185,129,0.2), rgba(52,211,153,0.15))",
+                  border: "1px solid rgba(16,185,129,0.3)",
+                  color: "#34d399",
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Agent
+              </span>
             </h3>
             <span
               style={{
@@ -525,7 +877,7 @@ export default function ChatPanel({
                 color: "var(--text-muted)",
               }}
             >
-              Multi-file operations
+              Plan → Execute → Review
             </span>
           </div>
         </div>
@@ -597,7 +949,7 @@ export default function ChatPanel({
         className="chat-panel-messages"
         onScroll={handleScroll}
       >
-        {messages.length === 0 ? (
+        {messages.length === 0 && !isLoading ? (
           <EmptyState />
         ) : (
           <div
@@ -611,7 +963,74 @@ export default function ChatPanel({
             {messages.map((msg, i) => (
               <ChatMessage key={i} msg={msg} />
             ))}
-            {isLoading && <ThinkingIndicator />}
+
+            {/* Live Step Executor — visible during step-by-step execution */}
+            {liveSteps.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: "6px",
+                  animation: "fadeInUp 0.25s ease-out",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "22px",
+                      height: "22px",
+                      borderRadius: "6px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: thinkingPhase === "reviewing"
+                        ? "linear-gradient(135deg, #8b5cf6, #a78bfa)"
+                        : "linear-gradient(135deg, #10b981, #34d399)",
+                      boxShadow: thinkingPhase === "reviewing"
+                        ? "0 2px 8px rgba(139,92,246,0.4)"
+                        : "0 2px 8px rgba(16,185,129,0.3)",
+                      flexShrink: 0,
+                      transition: "all 0.3s ease",
+                    }}
+                  >
+                    {thinkingPhase === "reviewing" ? (
+                      <Shield size={12} color="#fff" />
+                    ) : (
+                      <Zap size={12} color="#fff" />
+                    )}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: 600,
+                      color: thinkingPhase === "reviewing" ? "#a78bfa" : "var(--text-muted)",
+                      letterSpacing: "0.03em",
+                      textTransform: "uppercase",
+                      transition: "color 0.3s ease",
+                    }}
+                  >
+                    {thinkingPhase === "reviewing" ? "Self-correcting…" : "Executing…"}
+                  </span>
+                </div>
+                <StepExecutor
+                  steps={liveSteps}
+                  stepStatuses={liveStepStatuses}
+                  currentStepIndex={currentStepIndex}
+                />
+              </div>
+            )}
+
+            {/* Thinking indicator — only when waiting for AI (no live steps) */}
+            {isLoading && liveSteps.length === 0 && (
+              <AgentThinkingIndicator phase={thinkingPhase} />
+            )}
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -662,7 +1081,7 @@ export default function ChatPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask AI to modify your project…"
+            placeholder="Ask the agent to plan & execute…"
             disabled={isLoading}
             rows={1}
             style={{

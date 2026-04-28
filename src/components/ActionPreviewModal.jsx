@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { DiffEditor } from "@monaco-editor/react";
 import {
   FilePlus,
@@ -81,7 +81,23 @@ const ACTION_CONFIG = {
 };
 
 // ── Diff Viewer for update actions ──
+// Uses a ref-based cleanup to prevent the "TextModel got disposed before
+// DiffEditorWidget model got reset" error when the component unmounts.
 function DiffViewer({ original, modified, language }) {
+  const editorRef = useRef(null);
+
+  // @monaco-editor/react handles disposal automatically.
+  // We only need to clear our local ref on unmount to prevent memory leaks.
+  useEffect(() => {
+    return () => {
+      editorRef.current = null;
+    };
+  }, []);
+
+  const handleEditorMount = useCallback((editor) => {
+    editorRef.current = editor;
+  }, []);
+
   return (
     <div
       style={{
@@ -145,6 +161,7 @@ function DiffViewer({ original, modified, language }) {
         modified={modified}
         language={language}
         theme="vs-dark"
+        onMount={handleEditorMount}
         options={{
           readOnly: true,
           renderSideBySide: true,

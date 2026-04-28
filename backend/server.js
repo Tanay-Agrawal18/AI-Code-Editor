@@ -560,7 +560,7 @@ app.post("/api/github/import", async (req, res) => {
 });
 
 // ── POST /api/chat ──
-// AI Chat that can create, update, and delete project files
+// AI Agent Mode — plans step-by-step then executes file actions
 app.post("/api/chat", async (req, res) => {
   const { message, files, fileTree, currentFile, history } = req.body;
 
@@ -589,22 +589,51 @@ app.post("/api/chat", async (req, res) => {
       treeContext = `\n\nProject file tree:\n${fileTree.map((p) => `  - ${p}`).join("\n")}`;
     }
 
-    const systemPrompt = `You are an IDE AI assistant. Current file: ${currentFile || "unknown"}
+    const systemPrompt = `You are an AI coding agent integrated into an IDE. Current file: ${currentFile || "unknown"}
 
 ${fileContext}
 ${treeContext}
 
-Respond ONLY with valid JSON: {"actions":[...],"message":"..."}
-Action types: "create" (new file), "update" (modify file, include FULL content), "delete" (remove file).
-Each action: {"type":"create|update|delete","path":"file/path","content":"code"} (content optional for delete).
-If no file changes needed, return empty actions array. Keep message concise.`;
+You must:
+1. Think step-by-step about the user's request
+2. Break your work into logical steps — each step has a title and file actions
+3. Execute file actions as part of each step
+
+Return ONLY valid JSON in this exact format:
+{
+  "steps": [
+    {
+      "title": "Step 1 description",
+      "actions": [
+        { "type": "create", "path": "src/file.js", "content": "full file code here" }
+      ]
+    },
+    {
+      "title": "Step 2 description",
+      "actions": [
+        { "type": "update", "path": "src/other.js", "content": "full updated code" }
+      ]
+    }
+  ],
+  "message": "Brief summary of what you did"
+}
+
+Rules:
+- "steps" is an array of step objects. Each step has a "title" (short description) and "actions" (array of file operations for that step).
+- Always include at least 1 step, even if no file changes are needed (use an empty actions array).
+- Group related file operations into the same step. Use multiple steps for logically distinct parts.
+- Action types: "create" (new file), "update" (modify existing — FULL content), "delete" (remove file).
+- Each action: {"type":"create|update|delete","path":"file/path","content":"code"} (content optional for delete).
+- If no file changes needed, return a single step with empty actions and a helpful message.
+- Keep message concise — it summarizes what you did.
+- CRITICAL: Make sure all JSON strings are properly escaped. Backslashes, quotes, and newlines must be escaped for valid JSON.`;
 
     // Build messages array with conversation history
     const chatMessages = [{ role: "system", content: systemPrompt }];
 
     // Add conversation history for context
     if (history && Array.isArray(history)) {
-      // Only include the last 8 history messages to stay within token limits
+      // Only include the last 4 history messages to stay within token limits
       const recentHistory = history.slice(-4);
       for (const msg of recentHistory) {
         if (msg.role === "user" || msg.role === "assistant") {
@@ -618,15 +647,28 @@ If no file changes needed, return empty actions array. Keep message concise.`;
       chatMessages.push({ role: "user", content: message });
     }
 
-    const completion = await groq.chat.completions.create({
-      model: GROQ_CHAT_MODEL,
-      messages: chatMessages,
-      temperature: 0.2,
-      max_tokens: 4096,
-      response_format: { type: "json_object" },
-    });
+    let raw = "";
 
-    const raw = completion.choices[0]?.message?.content || "";
+    try {
+      const completion = await groq.chat.completions.create({
+        model: GROQ_CHAT_MODEL,
+        messages: chatMessages,
+        temperature: 0.2,
+        max_tokens: 4096,
+      });
+
+      raw = completion.choices[0]?.message?.content || "";
+    } catch (groqErr) {
+      // Groq sometimes rejects valid-ish JSON with json_validate_failed.
+      // The failed_generation field often contains parseable JSON we can salvage.
+      const errBody = groqErr?.error || groqErr;
+      if (errBody?.failed_generation) {
+        console.log("⚠️ Recovering from Groq json_validate_failed…");
+        raw = errBody.failed_generation;
+      } else {
+        throw groqErr;
+      }
+    }
 
     if (!raw) {
       return res.status(502).json({ error: "Empty response from AI." });
@@ -638,32 +680,196 @@ If no file changes needed, return empty actions array. Keep message concise.`;
 
       const result = JSON.parse(jsonMatch[0]);
 
-      const actions = Array.isArray(result.actions)
-        ? result.actions.filter(
-            (a) =>
-              a &&
-              typeof a.type === "string" &&
-              typeof a.path === "string" &&
-              ["create", "update", "delete"].includes(a.type)
-          )
-        : [];
+      // ── Parse new steps format ──
+      let steps = [];
+
+      if (Array.isArray(result.steps) && result.steps.length > 0) {
+        // New steps format
+        steps = result.steps
+          .filter((s) => s && typeof s.title === "string")
+          .map((s) => ({
+            title: s.title.trim(),
+            actions: Array.isArray(s.actions)
+              ? s.actions.filter(
+                  (a) =>
+                    a &&
+                    typeof a.type === "string" &&
+                    typeof a.path === "string" &&
+                    ["create", "update", "delete"].includes(a.type)
+                )
+              : [],
+          }));
+      } else if (Array.isArray(result.plan) && result.plan.length > 0) {
+        // Backward-compat: convert old plan+actions into steps
+        const flatActions = Array.isArray(result.actions)
+          ? result.actions.filter(
+              (a) =>
+                a &&
+                typeof a.type === "string" &&
+                typeof a.path === "string" &&
+                ["create", "update", "delete"].includes(a.type)
+            )
+          : [];
+
+        // Distribute actions across plan steps
+        const actionsPerStep = Math.max(
+          1,
+          Math.ceil(flatActions.length / result.plan.length)
+        );
+        steps = result.plan
+          .filter((step) => typeof step === "string" && step.trim())
+          .map((title, i) => ({
+            title: title.trim(),
+            actions: flatActions.slice(
+              i * actionsPerStep,
+              (i + 1) * actionsPerStep
+            ),
+          }));
+      }
+
+      // Fallback: if we got actions but no steps/plan, make a single step
+      if (steps.length === 0) {
+        const fallbackActions = Array.isArray(result.actions)
+          ? result.actions.filter(
+              (a) =>
+                a &&
+                typeof a.type === "string" &&
+                typeof a.path === "string" &&
+                ["create", "update", "delete"].includes(a.type)
+            )
+          : [];
+
+        if (fallbackActions.length > 0) {
+          steps = [{ title: "Applying changes", actions: fallbackActions }];
+        }
+      }
 
       const responseMessage =
         result.message || "Done. Check the updated files.";
 
-      console.log(
-        `💬 Chat: "${message.slice(0, 50)}..." → ${actions.length} actions`
+      // Collect all actions across steps for logging
+      const totalActions = steps.reduce(
+        (sum, s) => sum + s.actions.length,
+        0
       );
 
+      console.log(
+        `🤖 Agent: "${message.slice(0, 50)}..." → ${steps.length} steps, ${totalActions} actions`
+      );
+
+      // ── Self-Review Pass — verify generated code quality ──
+      let fixSteps = [];
+      let confidence = 1.0;
+
+      if (totalActions > 0) {
+        try {
+          // Build a summary of all generated/updated files for review
+          const generatedFiles = steps
+            .flatMap((s) => s.actions)
+            .filter((a) => a.type !== "delete" && a.content)
+            .map((a) => `--- ${a.path} ---\n${a.content.slice(0, 3000)}`)
+            .join("\n\n");
+
+          if (generatedFiles.length > 0) {
+            const reviewSystemPrompt = `You are reviewing your own code output for quality issues.
+
+Original user request: "${message}"
+
+Generated files:
+${generatedFiles}
+
+Check for:
+- missing imports or require statements
+- syntax errors (unclosed brackets, missing semicolons, typos)
+- incomplete logic (TODO placeholders, unfinished functions, missing error handling)
+- mismatched exports/imports between files
+- undefined variables or functions referenced but never declared
+
+Return ONLY valid JSON:
+{
+  "confidence": <number between 0 and 1 indicating how confident you are the code is correct>,
+  "issues": ["short description of each issue found"],
+  "fixSteps": [
+    {
+      "title": "Fix: description of fix",
+      "actions": [
+        { "type": "update", "path": "file/path", "content": "full corrected file content" }
+      ]
+    }
+  ]
+}
+
+Rules:
+- "confidence" must be a number between 0.0 and 1.0 (e.g. 0.95 means high confidence)
+- If NO issues found, return: {"confidence": 0.95, "issues": [], "fixSteps": []}
+- Only include fixSteps for real, concrete issues — not style preferences
+- Each fix action must include the FULL corrected file content
+- Keep it concise — only fix genuine bugs`;
+
+            const reviewRaw = await callGroq(
+              reviewSystemPrompt,
+              "Review the code above and report issues.",
+              true
+            );
+
+            if (reviewRaw) {
+              try {
+                const reviewMatch = reviewRaw.match(/\{[\s\S]*\}/);
+                if (reviewMatch) {
+                  const reviewResult = JSON.parse(reviewMatch[0]);
+
+                  // Extract confidence
+                  if (typeof reviewResult.confidence === "number") {
+                    confidence = Math.max(0, Math.min(1, reviewResult.confidence));
+                  }
+
+                  // Extract fix steps
+                  if (Array.isArray(reviewResult.fixSteps) && reviewResult.fixSteps.length > 0) {
+                    fixSteps = reviewResult.fixSteps
+                      .filter((s) => s && typeof s.title === "string")
+                      .map((s) => ({
+                        title: s.title.trim(),
+                        actions: Array.isArray(s.actions)
+                          ? s.actions.filter(
+                              (a) =>
+                                a &&
+                                typeof a.type === "string" &&
+                                typeof a.path === "string" &&
+                                ["create", "update", "delete"].includes(a.type)
+                            )
+                          : [],
+                      }))
+                      .filter((s) => s.actions.length > 0);
+                  }
+
+                  const issueCount = reviewResult.issues?.length || 0;
+                  console.log(
+                    `🔍 Self-review: confidence=${confidence.toFixed(2)}, issues=${issueCount}, fixes=${fixSteps.length}`
+                  );
+                }
+              } catch (reviewParseErr) {
+                console.error("⚠️ Self-review parse failed:", reviewParseErr.message);
+                // Non-critical — continue without fixes
+              }
+            }
+          }
+        } catch (reviewErr) {
+          console.error("⚠️ Self-review call failed:", reviewErr.message);
+          // Non-critical — continue without fixes
+        }
+      }
+
       return res.json({
-        actions,
+        steps,
+        fixSteps,
+        confidence,
         message: responseMessage,
       });
     } catch (parseErr) {
       console.error("Failed to parse chat JSON:", parseErr.message);
       // If parsing fails, return the raw text as a message
       return res.json({
-        actions: [],
+        steps: [],
         message: raw.slice(0, 2000),
       });
     }

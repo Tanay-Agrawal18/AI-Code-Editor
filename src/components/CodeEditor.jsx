@@ -55,6 +55,7 @@ export default function CodeEditor({
   const abortControllerRef = useRef(null);
   const debounceTimerRef = useRef(null);
   const providerDisposableRef = useRef(null);
+  const isDisposedRef = useRef(false);
 
   const fileName = getFileNameFromPath(activeFile);
 
@@ -66,9 +67,12 @@ export default function CodeEditor({
 
   // Cleanup on unmount
   useEffect(() => {
+    isDisposedRef.current = false;
     return () => {
+      isDisposedRef.current = true;
       if (providerDisposableRef.current) {
         providerDisposableRef.current.dispose();
+        providerDisposableRef.current = null;
       }
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -76,10 +80,20 @@ export default function CodeEditor({
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
+      // Null out editor refs to prevent stale access
+      monacoEditorRef.current = null;
+      if (editorRef) editorRef.current = null;
     };
-  }, []);
+  }, [editorRef]);
 
   const handleEditorMount = (editor, monaco) => {
+    // Dispose previous provider if re-mounting (e.g. HMR)
+    if (providerDisposableRef.current) {
+      providerDisposableRef.current.dispose();
+      providerDisposableRef.current = null;
+    }
+
+    isDisposedRef.current = false;
     monacoEditorRef.current = editor;
     if (editorRef) editorRef.current = editor;
 
@@ -88,6 +102,11 @@ export default function CodeEditor({
       monaco.languages.registerInlineCompletionsProvider("*", {
         provideInlineCompletions: (model, position, _context, token) => {
           return new Promise((resolve) => {
+            // Bail out if editor has been disposed
+            if (isDisposedRef.current) {
+              return resolve({ items: [] });
+            }
+
             // Cancel any pending debounce
             if (debounceTimerRef.current) {
               clearTimeout(debounceTimerRef.current);
@@ -99,6 +118,11 @@ export default function CodeEditor({
             }
 
             debounceTimerRef.current = setTimeout(async () => {
+              // Bail out if editor has been disposed during debounce
+              if (isDisposedRef.current) {
+                return resolve({ items: [] });
+              }
+
               // Cancel previous in-flight request
               if (abortControllerRef.current) {
                 abortControllerRef.current.abort();
