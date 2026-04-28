@@ -19,10 +19,11 @@ import {
   updateProject,
 } from "../utils/projectManager";
 
-const EXPLAIN_URL = "http://127.0.0.1:5000/api/explain";
-const INTENT_URL = "http://127.0.0.1:5000/api/intent";
-const VISUALIZE_URL = "http://127.0.0.1:5000/api/visualize";
-const EXPORT_URL = "http://127.0.0.1:5000/api/export";
+const API_URL = import.meta.env.VITE_API_URL;
+const EXPLAIN_URL = `${API_URL}/api/explain`;
+const INTENT_URL = `${API_URL}/api/intent`;
+const VISUALIZE_URL = `${API_URL}/api/visualize`;
+const EXPORT_URL = `${API_URL}/api/export`;
 
 let toastIdCounter = 0;
 

@@ -13,7 +13,14 @@ const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || "llama-3.1-8b-instant";
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // ── Middleware ──
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://ai-code-editor-ruby-six.vercel.app"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 app.use(express.json({ limit: "50mb" }));
 
 // ── Helper: Call Groq Chat Completions ──

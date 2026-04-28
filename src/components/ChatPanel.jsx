@@ -21,7 +21,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-const CHAT_URL = "http://127.0.0.1:5000/api/chat";
+const API_URL = import.meta.env.VITE_API_URL;
+const CHAT_URL = `${API_URL}/api/chat`;
 
 // ── Render file action badges ──
 function ActionBadge({ action }) {

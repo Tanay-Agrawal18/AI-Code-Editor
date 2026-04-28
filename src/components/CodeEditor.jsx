@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
 import { ChevronDown, Minus, Plus, Loader2, X } from "lucide-react";
 
-const AUTOCOMPLETE_URL = "http://127.0.0.1:5000/api/autocomplete";
+const API_URL = import.meta.env.VITE_API_URL;
+const AUTOCOMPLETE_URL = `${API_URL}/api/autocomplete`;
 const DEBOUNCE_MS = 400;
 
 const LANGUAGES = [

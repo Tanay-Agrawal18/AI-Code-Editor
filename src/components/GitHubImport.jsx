@@ -16,7 +16,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-const GITHUB_IMPORT_URL = "http://127.0.0.1:5000/api/github/import";
+const API_URL = import.meta.env.VITE_API_URL;
+const GITHUB_IMPORT_URL = `${API_URL}/api/github/import`;
 
 const EXAMPLE_REPOS = [
   {

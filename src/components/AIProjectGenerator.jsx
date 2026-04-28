@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import { formatCode } from "../utils/formatter";
 
-const GENERATE_URL = "http://127.0.0.1:5000/api/generate-project";
+const API_URL = import.meta.env.VITE_API_URL;
+const GENERATE_URL = `${API_URL}/api/generate-project`;
 
 const EXAMPLE_PROMPTS = [
   {
