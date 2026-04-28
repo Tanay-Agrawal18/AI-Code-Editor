@@ -53,224 +53,87 @@ export default function Navbar({
   onToggleHistory,
 }) {
   return (
-    <nav
-      id="main-navbar"
-      className="flex items-center justify-between shrink-0"
-      style={{
-        padding: "0 20px",
-        height: "52px",
-        background: "linear-gradient(180deg, rgba(17,24,39,0.95) 0%, rgba(10,14,26,0.98) 100%)",
-        borderBottom: "1px solid var(--border-subtle)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        animation: "fadeInDown 0.3s ease-out",
-        zIndex: 100,
-      }}
-    >
+    <nav id="main-navbar" className="navbar">
       {/* ── Left: Dashboard → Logo + Project Name ── */}
-      <div className="flex items-center shrink-0" style={{ gap: "10px" }}>
-        {/* Dashboard Button */}
+      <div className="navbar-left">
         {onBackToDashboard && (
           <button
             id="back-to-dashboard-btn"
             onClick={onBackToDashboard}
             title="Back to Dashboard"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "32px",
-              height: "32px",
-              borderRadius: "var(--radius-sm)",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid var(--border-subtle)",
-              color: "var(--text-secondary)",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-              flexShrink: 0,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(99,102,241,0.12)";
-              e.currentTarget.style.borderColor = "rgba(99,102,241,0.3)";
-              e.currentTarget.style.color = "var(--accent-primary-light)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-              e.currentTarget.style.borderColor = "var(--border-subtle)";
-              e.currentTarget.style.color = "var(--text-secondary)";
-            }}
+            className="navbar-dashboard-btn"
           >
             <LayoutDashboard size={14} />
           </button>
         )}
 
-        <div
-          style={{
-            width: "32px",
-            height: "32px",
-            borderRadius: "var(--radius-md)",
-            background: "linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 4px 14px var(--accent-glow)",
-          }}
-        >
-          <Code2 size={16} color="#fff" strokeWidth={2.5} />
+        <div className="navbar-logo-icon">
+          <Code2 size={15} color="#fff" strokeWidth={2.5} />
         </div>
-        <h1
-          style={{
-            fontSize: "15px",
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-            color: "var(--text-primary)",
-            lineHeight: 1,
-          }}
-        >
-          AI Code Editor
-        </h1>
+
         {projectName && (
           <>
-            <ChevronRight
-              size={12}
-              style={{ color: "var(--text-muted)", flexShrink: 0 }}
-            />
-            <span
-              style={{
-                fontSize: "13px",
-                fontWeight: 600,
-                color: "var(--accent-primary-light)",
-                fontFamily: "'JetBrains Mono', monospace",
-                letterSpacing: "-0.01em",
-                maxWidth: "140px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-              title={projectName}
-            >
+            <span className="navbar-project" title={projectName}>
               {projectName}
             </span>
+            <span className="navbar-breadcrumb" style={{ margin: "0 2px" }}>/</span>
           </>
         )}
-        <span
-          style={{
-            fontSize: "10px",
-            fontWeight: 600,
-            padding: "2px 6px",
-            borderRadius: "var(--radius-sm)",
-            background: "linear-gradient(135deg, rgba(99,102,241,0.15), rgba(139,92,246,0.15))",
-            color: "var(--accent-primary-light)",
-            border: "1px solid rgba(99,102,241,0.2)",
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
-          }}
-        >
-          Pro
-        </span>
-      </div>
 
-      {/* ── Center: File Name ── */}
-      <div className="file-indicator-center flex items-center shrink-0" style={{ gap: "8px" }}>
-        <CircleDot
-          size={8}
-          style={{ color: "#f59e0b" }}
-        />
-        <span
-          style={{
-            fontSize: "12px",
-            fontWeight: 500,
-            color: "var(--text-secondary)",
-            fontFamily: "'JetBrains Mono', monospace",
-          }}
-        >
-          {fileName}
-        </span>
-        <span
-          style={{
-            fontSize: "10px",
-            color: "var(--text-muted)",
-            fontStyle: "italic",
-          }}
-        >
-          — unsaved
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span className="navbar-file-name">{fileName}</span>
+          <div
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              backgroundColor: "#f59e0b",
+              boxShadow: "0 0 6px rgba(245,158,11,0.5)",
+            }}
+            title="Unsaved changes"
+          />
+        </div>
+
+        <span className="navbar-badge" style={{ marginLeft: 4 }}>Pro</span>
       </div>
 
       {/* ── Right: Actions ── */}
-      <div
-        className="navbar-actions flex items-center"
-        style={{ gap: "8px" }}
-      >
-        {/* Intent Group */}
-        <div
-          className="intent-group flex items-center"
-          style={{
-            gap: "6px",
-            padding: "4px 8px",
-            borderRadius: "var(--radius-md)",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid var(--border-default)",
-          }}
-        >
-          <div style={{ position: "relative" }}>
+      <div className="navbar-actions">
+        {/* ─── AI Actions Group: Optimize Select + Apply AI + Generate ─── */}
+        <div className="navbar-group">
+          <div style={{ position: "relative", width: "32px", height: "32px" }} title="Optimize">
             <select
               id="intent-select"
               value={intent}
               onChange={(e) => setIntent(e.target.value)}
-              style={{
-                appearance: "none",
-                padding: "5px 28px 5px 10px",
-                borderRadius: "var(--radius-sm)",
-                fontSize: "12px",
-                fontWeight: 600,
-                fontFamily: "'Inter', sans-serif",
-                background: "var(--bg-surface)",
-                color: "var(--text-primary)",
-                border: "1px solid var(--border-default)",
-                cursor: "pointer",
-                outline: "none",
-                transition: "border-color var(--duration-fast)",
-              }}
-              onFocus={(e) => e.target.style.borderColor = "var(--accent-primary)"}
-              onBlur={(e) => e.target.style.borderColor = "var(--border-default)"}
+              className="navbar-intent-select-icon"
             >
               {INTENTS.map((i) => (
                 <option key={i.value} value={i.value}>
-                  {i.icon} {i.label}
+                  {i.label}
                 </option>
               ))}
             </select>
-            <ChevronDown
-              size={12}
+            <div
               style={{
                 position: "absolute",
-                right: "8px",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "var(--text-muted)",
+                inset: 0,
                 pointerEvents: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "14px",
               }}
-            />
+            >
+              {INTENTS.find((i) => i.value === intent)?.icon || "⚡"}
+            </div>
           </div>
 
           <button
             id="apply-ai-btn"
             onClick={onApplyAI}
             disabled={isLoading}
-            className="btn-base"
-            style={{
-              padding: "5px 12px",
-              borderRadius: "var(--radius-sm)",
-              fontSize: "12px",
-              fontFamily: "'Inter', sans-serif",
-              background: isLoading
-                ? "var(--bg-elevated)"
-                : "linear-gradient(135deg, var(--success), var(--success-light))",
-              color: isLoading ? "var(--text-muted)" : "#fff",
-              boxShadow: isLoading ? "none" : "0 2px 10px var(--success-glow)",
-              opacity: isLoading ? 0.7 : 1,
-            }}
+            className={`navbar-btn navbar-btn-primary`}
           >
             {intentLoading ? (
               <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />
@@ -279,346 +142,130 @@ export default function Navbar({
             )}
             <span>{intentLoading ? "Applying..." : "Apply AI"}</span>
           </button>
+
+          <button
+            id="generate-project-btn"
+            onClick={onOpenGenerator}
+            disabled={isLoading}
+            className="navbar-btn"
+          >
+            <Wand2 size={13} style={{ color: "#f59e0b" }} />
+            <span className="hide-mobile">Generate</span>
+          </button>
         </div>
 
-        {/* Divider */}
-        <div
-          className="hide-mobile"
-          style={{
-            width: "1px",
-            height: "24px",
-            background: "var(--border-default)",
-          }}
-        />
+        <div className="navbar-divider hide-mobile" />
 
-        {/* Format Button */}
-        <button
-          id="format-code-btn"
-          onClick={onFormat}
-          disabled={isLoading}
-          className="btn-base"
-          style={{
-            padding: "6px 14px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "12px",
-            fontWeight: 600,
-            fontFamily: "'Inter', sans-serif",
-            background: isLoading
-              ? "var(--bg-elevated)"
-              : "rgba(255,255,255,0.07)",
-            color: isLoading ? "var(--text-muted)" : "var(--text-primary)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            opacity: isLoading ? 0.7 : 1,
-            transition: "all var(--duration-fast)",
-          }}
-          onMouseEnter={(e) => {
-            if (!isLoading) {
-              e.currentTarget.style.background = "rgba(255,255,255,0.14)";
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isLoading) {
-              e.currentTarget.style.background = "rgba(255,255,255,0.07)";
-            }
-          }}
-        >
-          <AlignLeft size={13} />
-          <span className="hide-mobile">Format</span>
-        </button>
+        {/* ─── Utility Group: Format + Explain + Visualize ─── */}
+        <div className="navbar-group">
+          <button
+            id="format-code-btn"
+            onClick={onFormat}
+            disabled={isLoading}
+            className="navbar-btn navbar-btn-muted"
+          >
+            <AlignLeft size={13} style={{ color: "#94a3b8" }} />
+            <span className="hide-mobile">Format</span>
+          </button>
 
-        {/* Explain Button */}
-        <button
-          id="explain-code-btn"
-          onClick={onExplain}
-          disabled={isLoading}
-          className="btn-base"
-          style={{
-            padding: "6px 14px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "12px",
-            fontWeight: 600,
-            fontFamily: "'Inter', sans-serif",
-            background: isLoading
-              ? "var(--bg-elevated)"
-              : "linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))",
-            color: isLoading ? "var(--text-muted)" : "#fff",
-            boxShadow: isLoading ? "none" : "0 2px 12px var(--accent-glow)",
-            opacity: isLoading ? 0.7 : 1,
-          }}
-        >
-          {explainLoading ? (
-            <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
-          ) : (
-            <Sparkles size={13} />
-          )}
-          <span className="hide-mobile">{explainLoading ? "Thinking..." : "Explain"}</span>
-        </button>
+          <button
+            id="explain-code-btn"
+            onClick={onExplain}
+            disabled={isLoading}
+            className="navbar-btn navbar-btn-muted"
+          >
+            {explainLoading ? (
+              <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+            ) : (
+              <Sparkles size={13} style={{ color: "#a855f7" }} />
+            )}
+            <span className="hide-mobile">{explainLoading ? "Thinking..." : "Explain"}</span>
+          </button>
 
-        {/* Visualize Button */}
-        <button
-          id="visualize-code-btn"
-          onClick={onVisualize}
-          disabled={isLoading}
-          className="btn-base"
-          style={{
-            padding: "6px 14px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "12px",
-            fontWeight: 600,
-            fontFamily: "'Inter', sans-serif",
-            background: isLoading
-              ? "var(--bg-elevated)"
-              : "linear-gradient(135deg, var(--accent-secondary), #a78bfa)",
-            color: isLoading ? "var(--text-muted)" : "#fff",
-            boxShadow: isLoading
-              ? "none"
-              : "0 2px 12px rgba(139,92,246,0.25)",
-            opacity: isLoading ? 0.7 : 1,
-          }}
-        >
-          {vizLoading ? (
-            <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
-          ) : (
-            <GitBranch size={13} />
-          )}
-          <span className="hide-mobile">{vizLoading ? "Analyzing..." : "Visualize"}</span>
-        </button>
+          <button
+            id="visualize-code-btn"
+            onClick={onVisualize}
+            disabled={isLoading}
+            className="navbar-btn navbar-btn-muted"
+          >
+            {vizLoading ? (
+              <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+            ) : (
+              <GitBranch size={13} style={{ color: "#3b82f6" }} />
+            )}
+            <span className="hide-mobile">{vizLoading ? "Analyzing..." : "Visualize"}</span>
+          </button>
+        </div>
 
-        {/* Generate Button */}
-        <button
-          id="generate-project-btn"
-          onClick={onOpenGenerator}
-          disabled={isLoading}
-          className="btn-base"
-          style={{
-            padding: "6px 14px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "12px",
-            fontWeight: 600,
-            fontFamily: "'Inter', sans-serif",
-            background: isLoading
-              ? "var(--bg-elevated)"
-              : "linear-gradient(135deg, #f59e0b, #f97316)",
-            color: isLoading ? "var(--text-muted)" : "#fff",
-            boxShadow: isLoading
-              ? "none"
-              : "0 2px 12px rgba(245,158,11,0.25)",
-            opacity: isLoading ? 0.7 : 1,
-          }}
-        >
-          <Wand2 size={13} />
-          <span className="hide-mobile">Generate</span>
-        </button>
+        <div className="navbar-divider hide-mobile" />
 
-        {/* GitHub Import Button */}
-        <button
-          id="github-import-btn"
-          onClick={onOpenGitHubImport}
-          disabled={isLoading}
-          className="btn-base"
-          style={{
-            padding: "6px 14px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "12px",
-            fontWeight: 600,
-            fontFamily: "'Inter', sans-serif",
-            background: isLoading
-              ? "var(--bg-elevated)"
-              : "linear-gradient(135deg, #2d333b, #1c2128)",
-            color: isLoading ? "var(--text-muted)" : "#fff",
-            boxShadow: isLoading
-              ? "none"
-              : "0 2px 12px rgba(0,0,0,0.3)",
-            opacity: isLoading ? 0.7 : 1,
-            border: "1px solid rgba(255,255,255,0.15)",
-          }}
-        >
-          <GitFork size={13} />
-          <span className="hide-mobile">GitHub</span>
-        </button>
+        {/* ─── System Group: GitHub + Export + AI Chat ─── */}
+        <div className="navbar-group">
+          <button
+            id="github-import-btn"
+            onClick={onOpenGitHubImport}
+            disabled={isLoading}
+            className="navbar-btn navbar-btn-muted"
+          >
+            <GitFork size={13} style={{ color: "#cbd5e1" }} />
+            <span className="hide-mobile">GitHub</span>
+          </button>
 
-        {/* Export / Download Button */}
-        <button
-          id="export-project-btn"
-          onClick={onExportProject}
-          disabled={isLoading}
-          className="btn-base"
-          style={{
-            padding: "6px 14px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "12px",
-            fontWeight: 600,
-            fontFamily: "'Inter', sans-serif",
-            background: isLoading
-              ? "var(--bg-elevated)"
-              : "linear-gradient(135deg, #0891b2, #06b6d4)",
-            color: isLoading ? "var(--text-muted)" : "#fff",
-            boxShadow: isLoading
-              ? "none"
-              : "0 2px 12px rgba(8,145,178,0.25)",
-            opacity: isLoading ? 0.7 : 1,
-          }}
-        >
-          <Download size={13} />
-          <span className="hide-mobile">Export</span>
-        </button>
+          <button
+            id="export-project-btn"
+            onClick={onExportProject}
+            disabled={isLoading}
+            className="navbar-btn navbar-btn-muted"
+          >
+            <Download size={13} style={{ color: "#06b6d4" }} />
+            <span className="hide-mobile">Export</span>
+          </button>
 
-        {/* AI Chat Toggle Button */}
-        <button
-          id="ai-chat-toggle-btn"
-          onClick={onToggleChat}
-          className="btn-base"
-          style={{
-            padding: "6px 14px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "12px",
-            fontWeight: 600,
-            fontFamily: "'Inter', sans-serif",
-            background: showChat
-              ? "linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))"
-              : "linear-gradient(135deg, #7c3aed, #a78bfa)",
-            color: showChat ? "#fff" : "#fff",
-            boxShadow: showChat
-              ? "0 2px 16px var(--accent-glow-strong)"
-              : "0 2px 12px rgba(124,58,237,0.25)",
-            opacity: 1,
-            border: showChat
-              ? "1px solid rgba(99,102,241,0.4)"
-              : "none",
-          }}
-        >
-          <MessageSquare size={13} />
-          <span className="hide-mobile">{showChat ? "Close Chat" : "AI Chat"}</span>
-        </button>
+          <button
+            id="ai-chat-toggle-btn"
+            onClick={onToggleChat}
+            className={`navbar-btn navbar-btn-accent ${showChat ? "navbar-btn-accent-active" : ""}`}
+          >
+            <MessageSquare size={13} />
+            <span className="hide-mobile">{showChat ? "Close Chat" : "AI Chat"}</span>
+          </button>
+        </div>
 
-        {/* Divider */}
-        <div
-          className="hide-mobile"
-          style={{
-            width: "1px",
-            height: "24px",
-            background: "var(--border-default)",
-          }}
-        />
+        <div className="navbar-divider hide-mobile" />
 
-        {/* ── Undo / Redo / History Group ── */}
-        <div
-          className="undo-redo-group flex items-center"
-          style={{
-            gap: "4px",
-            padding: "3px 6px",
-            borderRadius: "var(--radius-md)",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid var(--border-default)",
-            position: "relative",
-          }}
-        >
-          {/* Undo Button */}
+        {/* ─── Undo / Redo / History ─── */}
+        <div className="navbar-undo-group">
           <button
             id="undo-ai-btn"
             onClick={onUndo}
             disabled={undoCount === 0}
             title={`Undo AI Change (Ctrl+Shift+Z) — ${undoCount} in stack`}
-            className="btn-base"
-            style={{
-              padding: "5px 10px",
-              borderRadius: "var(--radius-sm)",
-              fontSize: "12px",
-              fontWeight: 600,
-              fontFamily: "'Inter', sans-serif",
-              background: undoCount === 0
-                ? "rgba(255,255,255,0.02)"
-                : "linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.1))",
-              color: undoCount === 0
-                ? "var(--text-muted)"
-                : "#fbbf24",
-              border: undoCount === 0
-                ? "1px solid transparent"
-                : "1px solid rgba(251,191,36,0.25)",
-              opacity: undoCount === 0 ? 0.5 : 1,
-              cursor: undoCount === 0 ? "not-allowed" : "pointer",
-              transition: "all 0.2s ease",
-            }}
+            className={`navbar-btn-undo ${undoCount > 0 ? "navbar-btn-undo-active" : ""}`}
           >
             <Undo2 size={13} />
             <span className="hide-mobile">Undo</span>
             {undoCount > 0 && (
-              <span
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  background: "rgba(251,191,36,0.2)",
-                  color: "#fbbf24",
-                  borderRadius: "6px",
-                  padding: "1px 5px",
-                  lineHeight: "1.4",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}
-              >
-                {undoCount}
-              </span>
+              <span className="navbar-undo-badge">{undoCount}</span>
             )}
           </button>
 
-          {/* Redo Button */}
           <button
             id="redo-ai-btn"
             onClick={onRedo}
             disabled={redoCount === 0}
             title={`Redo AI Change (Ctrl+Shift+Y) — ${redoCount} in stack`}
-            className="btn-base"
-            style={{
-              padding: "5px 10px",
-              borderRadius: "var(--radius-sm)",
-              fontSize: "12px",
-              fontWeight: 600,
-              fontFamily: "'Inter', sans-serif",
-              background: redoCount === 0
-                ? "rgba(255,255,255,0.02)"
-                : "linear-gradient(135deg, rgba(16,185,129,0.15), rgba(52,211,153,0.1))",
-              color: redoCount === 0
-                ? "var(--text-muted)"
-                : "#34d399",
-              border: redoCount === 0
-                ? "1px solid transparent"
-                : "1px solid rgba(52,211,153,0.25)",
-              opacity: redoCount === 0 ? 0.5 : 1,
-              cursor: redoCount === 0 ? "not-allowed" : "pointer",
-              transition: "all 0.2s ease",
-            }}
+            className={`navbar-btn-undo ${redoCount > 0 ? "navbar-btn-redo-active" : ""}`}
           >
             <Redo2 size={13} />
             <span className="hide-mobile">Redo</span>
           </button>
 
-          {/* History Button */}
           <button
             id="history-toggle-btn"
             onClick={onToggleHistory}
             disabled={undoCount === 0}
             title="View Change History"
-            className="btn-base"
-            style={{
-              padding: "5px 8px",
-              borderRadius: "var(--radius-sm)",
-              fontSize: "12px",
-              fontWeight: 600,
-              fontFamily: "'Inter', sans-serif",
-              background: showHistoryPanel
-                ? "rgba(99,102,241,0.15)"
-                : "rgba(255,255,255,0.02)",
-              color: showHistoryPanel
-                ? "var(--accent-primary-light)"
-                : undoCount === 0
-                  ? "var(--text-muted)"
-                  : "var(--text-secondary)",
-              border: showHistoryPanel
-                ? "1px solid rgba(99,102,241,0.3)"
-                : "1px solid transparent",
-              opacity: undoCount === 0 ? 0.5 : 1,
-              cursor: undoCount === 0 ? "not-allowed" : "pointer",
-              transition: "all 0.2s ease",
-            }}
+            className={`navbar-btn-undo ${showHistoryPanel ? "navbar-btn-history-active" : ""}`}
           >
             <History size={13} />
           </button>
@@ -626,58 +273,13 @@ export default function Navbar({
           {/* History Dropdown Panel */}
           {showHistoryPanel && undoStack.length > 0 && (
             <div
-              className="undo-history-dropdown"
-              style={{
-                position: "absolute",
-                top: "calc(100% + 8px)",
-                right: 0,
-                minWidth: "280px",
-                maxHeight: "320px",
-                overflowY: "auto",
-                background: "rgba(15,18,30,0.95)",
-                border: "1px solid var(--border-strong)",
-                borderRadius: "var(--radius-lg)",
-                backdropFilter: "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
-                boxShadow: "0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03)",
-                zIndex: 999,
-                animation: "scaleIn 0.15s ease-out",
-                padding: "6px 0",
-              }}
+              className="navbar-history-panel undo-history-dropdown"
               onClick={(e) => e.stopPropagation()}
             >
-              <div
-                style={{
-                  padding: "8px 14px 6px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  borderBottom: "1px solid var(--border-subtle)",
-                  marginBottom: "4px",
-                }}
-              >
+              <div className="navbar-history-header">
                 <History size={12} style={{ color: "var(--accent-primary-light)" }} />
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    color: "var(--text-primary)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  Change History
-                </span>
-                <span
-                  style={{
-                    marginLeft: "auto",
-                    fontSize: "10px",
-                    color: "var(--text-muted)",
-                    fontFamily: "'JetBrains Mono', monospace",
-                  }}
-                >
-                  {undoStack.length} / 10
-                </span>
+                <span className="navbar-history-title">Change History</span>
+                <span className="navbar-history-count">{undoStack.length} / 10</span>
               </div>
               {[...undoStack].reverse().map((entry, idx) => {
                 const age = Date.now() - entry.timestamp;
@@ -690,60 +292,11 @@ export default function Navbar({
                 return (
                   <div
                     key={idx}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "10px",
-                      padding: "7px 14px",
-                      fontSize: "12px",
-                      color: idx === 0 ? "var(--text-primary)" : "var(--text-secondary)",
-                      background: idx === 0 ? "rgba(99,102,241,0.08)" : "transparent",
-                      borderLeft: idx === 0 ? "2px solid var(--accent-primary)" : "2px solid transparent",
-                      transition: "all 0.12s ease",
-                      cursor: "default",
-                    }}
+                    className={`navbar-history-entry ${idx === 0 ? "navbar-history-entry-latest" : ""}`}
                   >
-                    <span
-                      style={{
-                        width: "18px",
-                        height: "18px",
-                        borderRadius: "50%",
-                        background: idx === 0
-                          ? "linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))"
-                          : "rgba(255,255,255,0.06)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "9px",
-                        fontWeight: 700,
-                        color: idx === 0 ? "#fff" : "var(--text-muted)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {entryNum}
-                    </span>
-                    <span
-                      style={{
-                        flex: 1,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        fontWeight: idx === 0 ? 600 : 400,
-                      }}
-                    >
-                      {entry.label}
-                    </span>
-                    <span
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "3px",
-                        fontSize: "10px",
-                        color: "var(--text-muted)",
-                        flexShrink: 0,
-                        fontFamily: "'JetBrains Mono', monospace",
-                      }}
-                    >
+                    <span className="navbar-history-entry-num">{entryNum}</span>
+                    <span className="navbar-history-entry-label">{entry.label}</span>
+                    <span className="navbar-history-entry-time">
                       <Clock size={9} />
                       {ageStr}
                     </span>
@@ -754,38 +307,10 @@ export default function Navbar({
           )}
         </div>
 
-        {/* Status Indicator */}
-        <div
-          className="hide-mobile flex items-center"
-          style={{
-            gap: "6px",
-            padding: "4px 10px",
-            borderRadius: "var(--radius-sm)",
-            background: "rgba(255,255,255,0.02)",
-            border: "1px solid var(--border-subtle)",
-          }}
-        >
-          <span
-            style={{
-              width: "6px",
-              height: "6px",
-              borderRadius: "50%",
-              background: isLoading ? "var(--warning)" : "#4ade80",
-              boxShadow: isLoading
-                ? "0 0 8px rgba(245,158,11,0.4)"
-                : "0 0 8px rgba(74,222,128,0.4)",
-              animation: "breathe 2s ease-in-out infinite",
-            }}
-          />
-          <span
-            style={{
-              fontSize: "11px",
-              fontWeight: 500,
-              color: "var(--text-secondary)",
-            }}
-          >
-            {isLoading ? "Processing" : "Ready"}
-          </span>
+        {/* ─── Status Indicator ─── */}
+        <div className="navbar-status hide-mobile">
+          <span className={`navbar-status-dot ${isLoading ? "navbar-status-dot-loading" : ""}`} />
+          <span>{isLoading ? "Processing" : "Ready"}</span>
         </div>
       </div>
     </nav>

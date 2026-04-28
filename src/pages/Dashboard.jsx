@@ -23,6 +23,8 @@ import {
   FolderGit2,
   MoreVertical,
   X,
+  Layers,
+  Zap,
 } from "lucide-react";
 
 // ── Format relative time ──
@@ -165,191 +167,233 @@ export default function Dashboard() {
       <div className="dashboard-bg-glow dashboard-bg-glow-2" />
       <div className="dashboard-bg-grid" />
 
-      {/* ── Header ── */}
-      <header className="dashboard-header">
-        <div className="dashboard-header-left">
-          <div className="dashboard-logo">
-            <Code2 size={20} strokeWidth={2.5} />
-          </div>
+      <div className="dashboard-container">
+        {/* ── Header ── */}
+        <header className="dashboard-header">
           <div>
-            <h1 className="dashboard-title">AI Code Editor</h1>
+            <h1 className="dashboard-title">Your Projects</h1>
             <p className="dashboard-subtitle">
-              {projects.length} project{projects.length !== 1 ? "s" : ""} •
-              Multi-Project Workspace
+              Manage and continue your work
             </p>
           </div>
-        </div>
 
-        <button
-          className="dashboard-new-btn"
-          onClick={() => setShowNewModal(true)}
-        >
-          <Plus size={16} />
-          <span>New Project</span>
-        </button>
-      </header>
+          <button
+            className="dashboard-new-btn"
+            onClick={() => setShowNewModal(true)}
+          >
+            <Plus size={16} />
+            <span>New Project</span>
+          </button>
+        </header>
 
-      {/* ── Search bar ── */}
-      <div className="dashboard-search-wrapper">
-        <div className="dashboard-search">
-          <Search size={15} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-          <input
-            type="text"
-            placeholder="Search projects…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="dashboard-search-input"
-          />
-          {search && (
-            <button
-              className="dashboard-search-clear"
-              onClick={() => setSearch("")}
-            >
-              <X size={13} />
-            </button>
-          )}
-        </div>
-      </div>
+        <div className="dashboard-search-row">
+          <div className="dashboard-search-group">
 
-      {/* ── Project Grid ── */}
-      <div className="dashboard-content">
-        {filteredProjects.length === 0 && search ? (
-          <div className="dashboard-empty">
-            <Search size={40} style={{ color: "var(--text-muted)", marginBottom: 12 }} />
-            <h3>No projects found</h3>
-            <p>No projects match "{search}"</p>
-          </div>
-        ) : filteredProjects.length === 0 ? (
-          <div className="dashboard-empty">
-            <div className="dashboard-empty-icon">
-              <FolderGit2 size={44} />
-            </div>
-            <h3>No projects yet</h3>
-            <p>Create your first project to get started with the AI-powered editor.</p>
-            <button
-              className="dashboard-new-btn"
-              onClick={() => setShowNewModal(true)}
-              style={{ marginTop: 16 }}
-            >
-              <Plus size={16} />
-              <span>Create Project</span>
-            </button>
-          </div>
-        ) : (
-          <div className="dashboard-grid">
-            {filteredProjects.map((project, i) => {
-              const lang = getLanguageBadge(project.files);
-              const isActive = project.id === activeProjectId;
-
-              return (
-                <div
-                  key={project.id}
-                  className={`dashboard-card${isActive ? " dashboard-card-active" : ""}`}
-                  style={{ animationDelay: `${i * 0.04}s` }}
-                  onDoubleClick={() => handleOpen(project.id)}
+            <div className="dashboard-search">
+              <Search size={15} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder="Search projects…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="dashboard-search-input"
+              />
+              {search && (
+                <button
+                  className="dashboard-search-clear"
+                  onClick={() => setSearch("")}
                 >
-                  {/* Card header */}
-                  <div className="dashboard-card-header">
-                    <div className="dashboard-card-icon">
-                      <FolderOpen size={18} />
-                    </div>
-                    <div className="dashboard-card-info">
-                      <h3 className="dashboard-card-name">{project.name}</h3>
-                      <span className="dashboard-card-time">
-                        <Clock size={10} />
-                        {timeAgo(project.lastModified)}
-                      </span>
-                    </div>
-                    <button
-                      className="dashboard-card-menu-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setContextMenu(
-                          contextMenu?.id === project.id
-                            ? null
-                            : { id: project.id }
-                        );
-                      }}
-                    >
-                      <MoreVertical size={14} />
-                    </button>
-                  </div>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
 
-                  {/* Card body: stats */}
-                  <div className="dashboard-card-stats">
-                    <div className="dashboard-card-stat">
-                      <FileCode size={12} />
-                      <span>
-                        {countFiles(project.files)} file
-                        {countFiles(project.files) !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                    {lang && (
-                      <span
-                        className="dashboard-card-lang"
-                        style={{
-                          borderColor: `${lang.color}33`,
-                          color: lang.color,
+            {projects.length > 0 && (
+              <div className="dashboard-project-count">
+                <Layers size={12} />
+                <span>
+                  {filteredProjects.length} of {projects.length} project
+                  {projects.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* ── Project Grid ── */}
+        <div className="dashboard-grid-area">
+          {filteredProjects.length === 0 && search ? (
+            <div className="dashboard-empty">
+              <Search size={40} style={{ color: "var(--text-muted)", marginBottom: 12 }} />
+              <h3>No projects found</h3>
+              <p>No projects match "{search}"</p>
+            </div>
+          ) : filteredProjects.length === 0 ? (
+            <div className="dashboard-empty">
+              <div className="dashboard-empty-icon">
+                <FolderGit2 size={44} />
+              </div>
+              <h3>No projects yet</h3>
+              <p>Create your first project to get started with the AI-powered editor.</p>
+              <button
+                className="dashboard-new-btn"
+                onClick={() => setShowNewModal(true)}
+                style={{ marginTop: 20 }}
+              >
+                <Zap size={15} />
+                <span>Create your first project</span>
+              </button>
+            </div>
+          ) : (
+            <div className="dashboard-grid">
+              {filteredProjects.map((project, i) => {
+                const lang = getLanguageBadge(project.files);
+                const isActive = project.id === activeProjectId;
+                const fileCount = countFiles(project.files);
+
+                return (
+                  <div
+                    key={project.id}
+                    className={`dashboard-card${isActive ? " dashboard-card-active" : ""}`}
+                    style={{ animationDelay: `${i * 0.05}s` }}
+                  >
+                    {/* Card header */}
+                    <div className="dashboard-card-header">
+                      <div className="dashboard-card-icon">
+                        <FolderOpen size={18} />
+                      </div>
+                      <div className="dashboard-card-info">
+                        <h3 className="dashboard-card-name">{project.name}</h3>
+                        <div className="dashboard-card-meta">
+                          <span className="dashboard-card-stat">
+                            <FileCode size={11} />
+                            {fileCount} file{fileCount !== 1 ? "s" : ""}
+                          </span>
+                          <span className="dashboard-card-divider-dot">·</span>
+                          <span className="dashboard-card-time">
+                            <Clock size={10} />
+                            {timeAgo(project.lastModified)}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        className="dashboard-card-menu-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setContextMenu(
+                            contextMenu?.id === project.id
+                              ? null
+                              : { id: project.id }
+                          );
                         }}
                       >
-                        {lang.name}
-                      </span>
-                    )}
-                    {isActive && (
-                      <span className="dashboard-card-active-badge">
-                        <Sparkles size={9} />
-                        Active
-                      </span>
-                    )}
-                  </div>
+                        <MoreVertical size={14} />
+                      </button>
+                    </div>
 
-                  {/* Card action */}
-                  <button
-                    className="dashboard-card-open-btn"
-                    onClick={() => handleOpen(project.id)}
-                  >
-                    <span>Open in Editor</span>
-                    <ArrowRight size={14} />
-                  </button>
+                    {/* Card badges */}
+                    <div className="dashboard-card-badges">
+                      {lang && (
+                        <span
+                          className="dashboard-card-lang"
+                          style={{
+                            borderColor: `${lang.color}33`,
+                            color: lang.color,
+                            background: `${lang.color}10`,
+                          }}
+                        >
+                          {lang.name}
+                        </span>
+                      )}
+                      {isActive && (
+                        <span className="dashboard-card-active-badge">
+                          <Sparkles size={9} />
+                          Active
+                        </span>
+                      )}
+                    </div>
 
-                  {/* Context menu */}
-                  {contextMenu?.id === project.id && (
-                    <div
-                      className="dashboard-context-menu"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                    {/* Hover overlay with actions */}
+                    <div className="dashboard-card-overlay">
                       <button
-                        className="dashboard-context-item"
+                        className="dashboard-card-overlay-btn dashboard-card-overlay-primary"
                         onClick={() => handleOpen(project.id)}
                       >
-                        <FolderOpen size={13} />
+                        <FolderOpen size={15} />
                         Open
                       </button>
-                      <button
-                        className="dashboard-context-item"
-                        onClick={() => handleDuplicate(project.id)}
-                      >
-                        <Copy size={13} />
-                        Duplicate
-                      </button>
-                      <div className="dashboard-context-divider" />
-                      <button
-                        className="dashboard-context-item dashboard-context-danger"
-                        onClick={() => {
-                          setDeleteConfirm(project.id);
-                          setContextMenu(null);
-                        }}
-                      >
-                        <Trash2 size={13} />
-                        Delete
-                      </button>
+                      <div className="dashboard-card-overlay-secondary">
+                        <button
+                          className="dashboard-card-overlay-btn-sm"
+                          onClick={() => handleDuplicate(project.id)}
+                          title="Duplicate"
+                        >
+                          <Copy size={13} />
+                          Duplicate
+                        </button>
+                        <button
+                          className="dashboard-card-overlay-btn-sm dashboard-card-overlay-danger"
+                          onClick={() => {
+                            setDeleteConfirm(project.id);
+                            setContextMenu(null);
+                          }}
+                          title="Delete"
+                        >
+                          <Trash2 size={13} />
+                          Delete
+                        </button>
+                      </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+
+                    {/* Card bottom action */}
+                    <button
+                      className="dashboard-card-open-btn"
+                      onClick={() => handleOpen(project.id)}
+                    >
+                      <span>Open in Editor</span>
+                      <ArrowRight size={14} />
+                    </button>
+
+                    {/* Context menu */}
+                    {contextMenu?.id === project.id && (
+                      <div
+                        className="dashboard-context-menu"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          className="dashboard-context-item"
+                          onClick={() => handleOpen(project.id)}
+                        >
+                          <FolderOpen size={13} />
+                          Open
+                        </button>
+                        <button
+                          className="dashboard-context-item"
+                          onClick={() => handleDuplicate(project.id)}
+                        >
+                          <Copy size={13} />
+                          Duplicate
+                        </button>
+                        <div className="dashboard-context-divider" />
+                        <button
+                          className="dashboard-context-item dashboard-context-danger"
+                          onClick={() => {
+                            setDeleteConfirm(project.id);
+                            setContextMenu(null);
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── New Project Modal ── */}
