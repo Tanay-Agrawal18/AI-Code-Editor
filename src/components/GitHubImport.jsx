@@ -89,16 +89,16 @@ export default function GitHubImport({ onImport, onClose, onToast }) {
         body: JSON.stringify({ repoUrl: url }),
       });
 
-      const data = await res.json();
+      const response = await res.json();
 
-      if (!res.ok) {
-        setError(data.error || "Failed to import repository.");
+      if (!response.success) {
+        setError(response.error || "Failed to import repository.");
         setPhase("error");
         return;
       }
 
       setProgress(100);
-      setImportData(data);
+      setImportData(response.data);
 
       // Small delay to let progress bar fill visually
       setTimeout(() => setPhase("success"), 400);

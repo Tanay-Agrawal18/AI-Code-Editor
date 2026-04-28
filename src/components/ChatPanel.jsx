@@ -636,17 +636,19 @@ export default function ChatPanel({
         body: JSON.stringify(chatPayload),
       });
 
-      const data = await res.json();
+      const response = await res.json();
 
-      if (!res.ok) {
+      if (!response.success) {
         const errorMsg = {
           role: "assistant",
-          content: `❌ Error: ${data.error || "Something went wrong."}`,
+          content: `❌ Error: ${response.error || "Something went wrong."}`,
         };
         setMessages((prev) => [...prev, errorMsg]);
-        onToast?.(data.error || "Chat request failed", "error");
+        onToast?.(response.error || "Chat request failed", "error");
         return;
       }
+
+      const data = response.data;
 
       // ── Step-by-step execution engine ──
       const steps = data.steps || [];

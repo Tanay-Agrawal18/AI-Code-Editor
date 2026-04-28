@@ -121,11 +121,13 @@ export default function AIProjectGenerator({ onGenerate, onClose, onToast }) {
         body: JSON.stringify({ prompt: prompt.trim() }),
       });
 
-      const data = await res.json();
+      const response = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to generate project.");
+      if (!response.success) {
+        throw new Error(response.error || "Failed to generate project.");
       }
+
+      const data = response.data;
 
       if (!data.files || data.files.length === 0) {
         throw new Error("No files were generated. Try a more detailed prompt.");

@@ -170,7 +170,7 @@ export default function Home() {
   const [activeFile, setActiveFile] = useState(() => {
     if (projectData) {
       const saved = projectData.activeFile;
-      if (saved && projectData.files?.hasOwnProperty(saved)) return saved;
+      if (saved && Object.prototype.hasOwnProperty.call(projectData.files || {}, saved)) return saved;
       const keys = Object.keys(projectData.files || {});
       return keys.length > 0 ? keys[0] : "project/index.js";
     }
@@ -180,7 +180,7 @@ export default function Home() {
     if (projectData) {
       const savedTabs = projectData.openTabs || [];
       const allFiles = projectData.files || {};
-      const valid = savedTabs.filter((t) => allFiles.hasOwnProperty(t));
+      const valid = savedTabs.filter((t) => Object.prototype.hasOwnProperty.call(allFiles, t));
       return valid.length > 0 ? valid : Object.keys(allFiles).slice(0, 1);
     }
     return ["project/index.js"];
@@ -275,7 +275,7 @@ export default function Home() {
   // ── File operations ──
   const handleSelectFile = useCallback(
     (path) => {
-      if (!files.hasOwnProperty(path)) return;
+      if (!Object.prototype.hasOwnProperty.call(files, path)) return;
       setActiveFile(path);
       // Add to open tabs if not already there
       setOpenTabs((prev) =>
@@ -316,7 +316,7 @@ export default function Home() {
       // Build full path: folderPath/fileName
       const fullPath = `${folderPath}/${fileName}`;
 
-      if (files.hasOwnProperty(fullPath)) {
+      if (Object.prototype.hasOwnProperty.call(files, fullPath)) {
         addToast(`File "${fileName}" already exists!`, "error");
         return;
       }
@@ -341,7 +341,7 @@ export default function Home() {
       // Create a placeholder to represent the folder
       const folderKey = `${parentPath}/${folderName}/.gitkeep`;
 
-      if (files.hasOwnProperty(folderKey)) {
+      if (Object.prototype.hasOwnProperty.call(files, folderKey)) {
         addToast(`Folder "${folderName}" already exists!`, "error");
         return;
       }
@@ -702,7 +702,7 @@ export default function Home() {
             if (!firstModifiedFile) firstModifiedFile = action.path;
             break;
           case "update":
-            if (next.hasOwnProperty(action.path)) {
+            if (Object.prototype.hasOwnProperty.call(next, action.path)) {
               next[action.path] = action.content || "";
               if (!firstModifiedFile) firstModifiedFile = action.path;
             } else {
@@ -837,11 +837,11 @@ export default function Home() {
         body: JSON.stringify({ code }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setExplainError(data.error || "Something went wrong.");
+      const response = await res.json();
+      if (!response.success) {
+        setExplainError(response.error || "Something went wrong.");
       } else {
-        setExplanation(data.explanation);
+        setExplanation(response.data.explanation);
         addToast("AI explanation ready", "ai");
       }
     } catch {
@@ -877,11 +877,11 @@ export default function Home() {
         body: JSON.stringify({ code, intent: usedIntent }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setIntentError(data.error || "Something went wrong.");
+      const response = await res.json();
+      if (!response.success) {
+        setIntentError(response.error || "Something went wrong.");
       } else {
-        setResult(data.result);
+        setResult(response.data.result);
         addToast("AI response ready", "ai");
       }
     } catch {
@@ -913,17 +913,17 @@ export default function Home() {
         body: JSON.stringify({ code }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setVizError(data.error || "Something went wrong.");
-      } else if (!data.nodes || data.nodes.length === 0) {
+      const response = await res.json();
+      if (!response.success) {
+        setVizError(response.error || "Something went wrong.");
+      } else if (!response.data.nodes || response.data.nodes.length === 0) {
         setVizError(
-          data.warning ||
-          "No functions were detected. Try adding some function definitions."
+          response.data.warning ||
+            "No functions were detected. Try adding some function definitions."
         );
       } else {
-        setVizData(data);
-        addToast(`Found ${data.nodes.length} functions`, "ai");
+        setVizData(response.data);
+        addToast(`Found ${response.data.nodes.length} functions`, "ai");
       }
     } catch {
       setVizError(
@@ -948,7 +948,7 @@ export default function Home() {
       } else {
         addToast("Code is already formatted", "info");
       }
-    } catch (err) {
+    } catch (_err) {
       addToast("Formatting failed", "error");
     }
   }, [getCurrentCode, activeFile, handleContentChange, addToast]);

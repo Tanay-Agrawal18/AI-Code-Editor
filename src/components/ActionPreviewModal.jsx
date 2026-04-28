@@ -456,7 +456,7 @@ export default function ActionPreviewModal({
   // Count by type
   const counts = { create: 0, update: 0, delete: 0 };
   actions.forEach((a) => {
-    if (counts.hasOwnProperty(a.type)) counts[a.type]++;
+    if (Object.prototype.hasOwnProperty.call(counts, a.type)) counts[a.type]++;
   });
 
   // Make modal wider when there are update actions (need space for diff)

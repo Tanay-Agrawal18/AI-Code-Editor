@@ -54,7 +54,7 @@ app.post("/api/explain", async (req, res) => {
   const { code } = req.body;
 
   if (!code || !code.trim()) {
-    return res.status(400).json({ error: "No code provided." });
+    return res.status(400).json({ success: false, error: "No code provided." });
   }
 
   try {
@@ -64,14 +64,12 @@ app.post("/api/explain", async (req, res) => {
     );
 
     if (!explanation) {
-      return res.status(502).json({ error: "Empty response from Groq API." });
+      return res.status(502).json({ success: false, error: "Empty response from Groq API." });
     }
 
-    return res.json({ explanation });
+    return res.json({ success: true, data: { explanation } });
   } catch (err) {
-    return res.status(500).json({
-      error: `Failed to get explanation: ${err.message}`,
-    });
+    return res.status(500).json({ success: false, error: `Failed to get explanation: ${err.message}`, });
   }
 });
 
@@ -89,13 +87,13 @@ app.post("/api/intent", async (req, res) => {
   const { code, intent } = req.body;
 
   if (!code || !code.trim()) {
-    return res.status(400).json({ error: "No code provided." });
+    return res.status(400).json({ success: false, error: "No code provided." });
   }
 
   if (!intent || !INTENT_PROMPTS[intent]) {
     return res
       .status(400)
-      .json({ error: `Invalid intent. Use one of: ${Object.keys(INTENT_PROMPTS).join(", ")}` });
+      .json({ success: false, error: `Invalid intent. Use one of: ${Object.keys(INTENT_PROMPTS).join(", ")}` });
   }
 
   try {
@@ -105,7 +103,7 @@ app.post("/api/intent", async (req, res) => {
     );
 
     if (!result) {
-      return res.status(502).json({ error: "Empty response from Groq API." });
+      return res.status(502).json({ success: false, error: "Empty response from Groq API." });
     }
 
     // Strip markdown code fences if present
@@ -114,11 +112,9 @@ app.post("/api/intent", async (req, res) => {
       .replace(/```\s*$/gm, "")
       .trim();
 
-    return res.json({ result: cleaned });
+    return res.json({ success: true, data: { result: cleaned } });
   } catch (err) {
-    return res.status(500).json({
-      error: `Failed to apply intent: ${err.message}`,
-    });
+    return res.status(500).json({ success: false, error: `Failed to apply intent: ${err.message}`, });
   }
 });
 
@@ -128,14 +124,14 @@ app.post("/api/visualize", async (req, res) => {
   const { code } = req.body;
 
   if (!code || !code.trim()) {
-    return res.status(400).json({ error: "No code provided." });
+    return res.status(400).json({ success: false, error: "No code provided." });
   }
 
   // Primary: Use the deterministic regex parser (fast & reliable)
   const parsed = parseCodeFallback(code);
 
   if (parsed.nodes.length > 0) {
-    return res.json(parsed);
+    return res.json({ success: true, data: parsed });
   }
 
   // Secondary: Try Groq if regex found nothing
@@ -154,11 +150,7 @@ Rules:
     );
 
     if (!raw) {
-      return res.status(200).json({
-        nodes: [],
-        edges: [],
-        warning: "No functions detected in the code.",
-      });
+      return res.json({ success: true, data: { nodes: [], edges: [], warning: "No functions detected in the code.", } });
     }
 
     try {
@@ -177,20 +169,12 @@ Rules:
         }))
         .filter(e => nodes.includes(e.from) && nodes.includes(e.to));
 
-      return res.json({ nodes, edges });
-    } catch (parseErr) {
-      return res.status(200).json({
-        nodes: [],
-        edges: [],
-        warning: "No functions detected in the code.",
-      });
+      return res.json({ success: true, data: { nodes, edges } });
+    } catch (_parseErr) {
+      return res.json({ success: true, data: { nodes: [], edges: [], warning: "No functions detected in the code." } });
     }
-  } catch (err) {
-    return res.status(200).json({
-      nodes: [],
-      edges: [],
-      warning: "No functions detected in the code. Try adding function definitions.",
-    });
+  } catch (_err) {
+    return res.json({ success: true, data: { nodes: [], edges: [], warning: "No functions detected in the code. Try adding function definitions.", } });
   }
 });
 
@@ -199,7 +183,7 @@ app.post("/api/generate-project", async (req, res) => {
   const { prompt } = req.body;
 
   if (!prompt || !prompt.trim()) {
-    return res.status(400).json({ error: "No prompt provided." });
+    return res.status(400).json({ success: false, error: "No prompt provided." });
   }
 
   try {
@@ -232,7 +216,7 @@ Rules:
     const raw = await callGroq(systemPrompt, prompt, true);
 
     if (!raw) {
-      return res.status(502).json({ error: "Empty response from Groq API." });
+      return res.status(502).json({ success: false, error: "Empty response from Groq API." });
     }
 
     // Parse the JSON response
@@ -243,7 +227,7 @@ Rules:
       const result = JSON.parse(jsonMatch[0]);
 
       if (!result.files || !Array.isArray(result.files) || result.files.length === 0) {
-        return res.status(502).json({ error: "AI returned no files. Try a more detailed prompt." });
+        return res.status(502).json({ success: false, error: "AI returned no files. Try a more detailed prompt." });
       }
 
       // Extract or generate project name
@@ -276,19 +260,15 @@ Rules:
         }));
 
       if (validFiles.length === 0) {
-        return res.status(502).json({ error: "AI returned invalid file format." });
+        return res.status(502).json({ success: false, error: "AI returned invalid file format." });
       }
 
-      return res.json({ projectName, files: validFiles });
-    } catch (parseErr) {
-      return res.status(502).json({
-        error: "Failed to parse AI response. Try simplifying your prompt.",
-      });
+      return res.json({ success: true, data: { projectName, files: validFiles } });
+    } catch (_parseErr) {
+      return res.status(502).json({ success: false, error: "Failed to parse AI response. Try simplifying your prompt." });
     }
   } catch (err) {
-    return res.status(500).json({
-      error: `Failed to generate project: ${err.message}`,
-    });
+    return res.status(500).json({ success: false, error: `Failed to generate project: ${err.message}` });
   }
 });
 
@@ -297,7 +277,7 @@ app.post("/api/autocomplete", async (req, res) => {
   const { code, language } = req.body;
 
   if (!code || typeof code !== "string") {
-    return res.status(400).json({ suggestion: "" });
+    return res.status(400).json({ success: false, data: { suggestion: "" } });
   }
 
   try {
@@ -335,9 +315,9 @@ app.post("/api/autocomplete", async (req, res) => {
       .replace(/```\s*$/gm, "")
       .trimEnd();
 
-    return res.json({ suggestion });
-  } catch (err) {
-    return res.json({ suggestion: "" });
+    return res.json({ success: true, data: { suggestion } });
+  } catch (_err) {
+    return res.json({ success: true, data: { suggestion: "" } });
   }
 });
 
@@ -347,7 +327,7 @@ app.post("/api/github/import", async (req, res) => {
   const { repoUrl } = req.body;
 
   if (!repoUrl || !repoUrl.trim()) {
-    return res.status(400).json({ error: "No repository URL provided." });
+    return res.status(400).json({ success: false, error: "No repository URL provided." });
   }
 
   try {
@@ -378,10 +358,7 @@ app.post("/api/github/import", async (req, res) => {
         repo = shortMatch[2];
         branch = "main";
       } else {
-        return res.status(400).json({
-          error:
-            'Invalid GitHub URL. Use format: "https://github.com/owner/repo" or "owner/repo"',
-        });
+        return res.status(400).json({ success: false, error: 'Invalid GitHub URL. Use format: "https://github.com/owner/repo" or "owner/repo"', });
       }
     }
 
@@ -390,21 +367,13 @@ app.post("/api/github/import", async (req, res) => {
 
     const fileCount = Object.keys(files).length;
     if (fileCount === 0) {
-      return res.status(404).json({ error: "No files found in this repository." });
+      return res.status(404).json({ success: false, error: "No files found in this repository." });
     }
 
 
-    return res.json({
-      owner,
-      repo,
-      branch,
-      fileCount,
-      files,
-    });
+    return res.json({ success: true, data: { owner, repo, branch, fileCount, files } });
   } catch (err) {
-    return res.status(500).json({
-      error: err.message || "Failed to import repository.",
-    });
+    return res.status(500).json({ success: false, error: err.message || "Failed to import repository.", });
   }
 });
 
@@ -414,7 +383,7 @@ app.post("/api/chat", async (req, res) => {
   const { message, files, fileTree, currentFile, history } = req.body;
 
   if (!message || !message.trim()) {
-    return res.status(400).json({ error: "No message provided." });
+    return res.status(400).json({ success: false, error: "No message provided." });
   }
 
   try {
@@ -519,7 +488,7 @@ Rules:
     }
 
     if (!raw) {
-      return res.status(502).json({ error: "Empty response from AI." });
+      return res.status(502).json({ success: false, error: "Empty response from AI." });
     }
 
     try {
@@ -686,36 +655,38 @@ Rules:
                       }))
                       .filter((s) => s.actions.length > 0);
                   }
-
-                  const issueCount = reviewResult.issues?.length || 0;
                 }
-              } catch (reviewParseErr) {
+              } catch (_reviewParseErr) {
                 // Non-critical — continue without fixes
               }
             }
           }
-        } catch (reviewErr) {
+        } catch (_reviewErr) {
           // Non-critical — continue without fixes
         }
       }
 
       return res.json({
-        steps,
-        fixSteps,
-        confidence,
-        message: responseMessage,
+        success: true,
+        data: {
+          steps,
+          fixSteps,
+          confidence,
+          message: responseMessage,
+        },
       });
-    } catch (parseErr) {
+    } catch (_parseErr) {
       // If parsing fails, return the raw text as a message
       return res.json({
-        steps: [],
-        message: raw.slice(0, 2000),
+        success: true,
+        data: {
+          steps: [],
+          message: raw.slice(0, 2000),
+        },
       });
     }
   } catch (err) {
-    return res.status(500).json({
-      error: `Chat failed: ${err.message}`,
-    });
+    return res.status(500).json({ success: false, error: `Chat failed: ${err.message}`, });
   }
 });
 
@@ -725,7 +696,7 @@ app.post("/api/export", (req, res) => {
   const { files, projectName } = req.body;
 
   if (!files || typeof files !== "object" || Object.keys(files).length === 0) {
-    return res.status(400).json({ error: "No files to export." });
+    return res.status(400).json({ success: false, error: "No files to export." });
   }
 
   const zipName = (projectName || "project").replace(/[^a-z0-9_-]/gi, "-");
@@ -735,7 +706,7 @@ app.post("/api/export", (req, res) => {
 
   const archive = archiver("zip", { zlib: { level: 6 } });
 
-  archive.on("error", (err) => {
+  archive.on("error", (_err) => {
     res.status(500).end();
   });
 

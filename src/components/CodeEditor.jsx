@@ -171,11 +171,13 @@ export default function CodeEditor({
                   return resolve({ items: [] });
                 }
 
-                const data = await res.json();
+                const response = await res.json();
 
-                if (!data.suggestion || !data.suggestion.trim()) {
+                if (!response.success || !response.data.suggestion || !response.data.suggestion.trim()) {
                   return resolve({ items: [] });
                 }
+
+                const data = response.data;
 
                 resolve({
                   items: [

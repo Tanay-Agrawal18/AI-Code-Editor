@@ -223,7 +223,7 @@ export function migrateLegacyData() {
     activeFile: legacyActive || Object.keys(legacyFiles)[0],
     openTabs:
       legacyTabs.length > 0
-        ? legacyTabs.filter((t) => legacyFiles.hasOwnProperty(t))
+        ? legacyTabs.filter((t) => Object.prototype.hasOwnProperty.call(legacyFiles, t))
         : [Object.keys(legacyFiles)[0]],
     createdAt: now,
     lastModified: now,
