@@ -305,20 +305,20 @@ export default function Navbar({
             fontFamily: "'Inter', sans-serif",
             background: isLoading
               ? "var(--bg-elevated)"
-              : "rgba(255,255,255,0.03)",
+              : "rgba(255,255,255,0.07)",
             color: isLoading ? "var(--text-muted)" : "var(--text-primary)",
-            border: "1px solid var(--border-default)",
+            border: "1px solid rgba(255,255,255,0.15)",
             opacity: isLoading ? 0.7 : 1,
             transition: "all var(--duration-fast)",
           }}
           onMouseEnter={(e) => {
             if (!isLoading) {
-              e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+              e.currentTarget.style.background = "rgba(255,255,255,0.14)";
             }
           }}
           onMouseLeave={(e) => {
             if (!isLoading) {
-              e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+              e.currentTarget.style.background = "rgba(255,255,255,0.07)";
             }
           }}
         >
@@ -424,13 +424,13 @@ export default function Navbar({
             fontFamily: "'Inter', sans-serif",
             background: isLoading
               ? "var(--bg-elevated)"
-              : "linear-gradient(135deg, #333, #0d1117)",
+              : "linear-gradient(135deg, #2d333b, #1c2128)",
             color: isLoading ? "var(--text-muted)" : "#fff",
             boxShadow: isLoading
               ? "none"
               : "0 2px 12px rgba(0,0,0,0.3)",
             opacity: isLoading ? 0.7 : 1,
-            border: "1px solid rgba(255,255,255,0.1)",
+            border: "1px solid rgba(255,255,255,0.15)",
           }}
         >
           <GitFork size={13} />
@@ -781,7 +781,7 @@ export default function Navbar({
             style={{
               fontSize: "11px",
               fontWeight: 500,
-              color: "var(--text-muted)",
+              color: "var(--text-secondary)",
             }}
           >
             {isLoading ? "Processing" : "Ready"}

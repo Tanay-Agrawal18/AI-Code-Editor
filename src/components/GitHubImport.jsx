@@ -16,7 +16,10 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+if (!import.meta.env.VITE_API_URL) {
+  console.warn("VITE_API_URL is undefined, falling back to http://localhost:5000");
+}
 const GITHUB_IMPORT_URL = `${API_URL}/api/github/import`;
 
 const EXAMPLE_REPOS = [

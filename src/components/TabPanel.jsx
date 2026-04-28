@@ -519,17 +519,17 @@ function EmptyState({ icon: Icon, title, description }) {
           width: "48px",
           height: "48px",
           borderRadius: "var(--radius-xl)",
-          background: "rgba(255,255,255,0.03)",
-          border: "1px solid var(--border-subtle)",
+          background: "rgba(255,255,255,0.06)",
+          border: "1px solid var(--border-default)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Icon size={20} style={{ color: "var(--text-muted)" }} />
+        <Icon size={20} style={{ color: "var(--text-secondary)" }} />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-        <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-secondary)" }}>{title}</span>
+        <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-primary)" }}>{title}</span>
         <span style={{ fontSize: "12px", color: "var(--text-muted)", lineHeight: "1.5" }}>{description}</span>
       </div>
     </div>

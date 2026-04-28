@@ -21,7 +21,10 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+if (!import.meta.env.VITE_API_URL) {
+  console.warn("VITE_API_URL is undefined, falling back to http://localhost:5000");
+}
 const CHAT_URL = `${API_URL}/api/chat`;
 
 // ── Render file action badges ──
@@ -1122,9 +1125,9 @@ export default function ChatPanel({
               cursor: isLoading || !input.trim() ? "not-allowed" : "pointer",
               background:
                 isLoading || !input.trim()
-                  ? "rgba(255,255,255,0.04)"
+                  ? "rgba(255,255,255,0.08)"
                   : "linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))",
-              color: isLoading || !input.trim() ? "var(--text-muted)" : "#fff",
+              color: isLoading || !input.trim() ? "var(--text-secondary)" : "#fff",
               boxShadow:
                 isLoading || !input.trim()
                   ? "none"

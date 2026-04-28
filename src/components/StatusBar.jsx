@@ -24,7 +24,7 @@ export default function StatusBar({ isLoading, language = "JavaScript" }) {
         borderTop: "1px solid var(--border-subtle)",
         fontSize: "11px",
         fontWeight: 500,
-        color: isLoading ? "#fff" : "var(--text-muted)",
+        color: isLoading ? "#fff" : "var(--text-secondary)",
         transition: "background 0.4s var(--ease-smooth)",
         flexShrink: 0,
         zIndex: 50,
@@ -58,7 +58,7 @@ function StatusItem({ icon: Icon, label, glow }) {
         display: "flex",
         alignItems: "center",
         gap: "4px",
-        opacity: glow ? 1 : 0.85,
+        opacity: glow ? 1 : 0.9,
       }}
     >
       <Icon size={11} />

@@ -3,7 +3,10 @@
  * All API calls should use this wrapper for standardized behavior.
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+if (!import.meta.env.VITE_API_URL) {
+  console.warn("VITE_API_URL is undefined, falling back to http://localhost:5000");
+}
 
 /**
  * Custom error class for API errors with status code and type.
